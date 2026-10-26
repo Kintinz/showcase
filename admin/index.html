@@ -27,7 +27,37 @@
       <footer>SHOWCASE <span>Source nằm trên GitHub. Ý tưởng được mở ra bằng một đường link.</span></footer>
     </main>
   </div>
-  <dialog id="connect-dialog"><form id="connect-form"><div class="dialog-heading"><div><p class="eyebrow">REPO KINTINZ / SHOWCASE</p><h2>Kết nối GitHub</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng">×</button></div><p class="field-hint">Dùng token của chính bạn. Tài khoản cần có quyền ghi repo để đăng hoặc xóa giao diện. Token chỉ giữ trong bộ nhớ tab; tải lại trang sẽ cần kết nối lại.</p><label class="field">Token GitHub cá nhân<input id="github-token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Nhập token GitHub của bạn" required></label><p class="field-hint">Token cần quyền Contents: Read and write, Metadata: Read; thêm Actions: Read để xem chi tiết tiến trình. Nếu bạn là cộng tác viên trên repo public của tài khoản khác, có thể cần token classic với scope public_repo.</p><p class="field-hint"><a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Tạo hoặc quản lý token trên GitHub ↗</a></p><p id="connect-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close>Hủy</button><button id="connect-button" class="button primary" type="submit">Kết nối</button></div></form></dialog>
+  <dialog id="connect-dialog"><form id="connect-form">
+    <div class="dialog-heading"><div><p class="eyebrow">REPO KINTINZ / SHOWCASE</p><h2>Kết nối GitHub</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng">×</button></div>
+    <p class="field-hint">Dùng token của chính bạn. Tài khoản cần có quyền ghi repo để đăng hoặc xóa giao diện. Chọn hướng dẫn phù hợp bên dưới.</p>
+    <details class="field-hint" open>
+      <summary><strong>Bạn là người được thêm vào repo Kintinz/showcase</strong></summary>
+      <p><a class="button secondary small" href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer">Tạo token classic trên GitHub ↗</a></p>
+      <ol>
+        <li>Đăng nhập đúng tài khoản đã được cấp quyền ghi repo và đã chấp nhận lời mời.</li>
+        <li>Nhập <strong>Note</strong>, ví dụ <code>Showcase</code>.</li>
+        <li>Chọn <strong>Expiration</strong>, ví dụ 30 ngày.</li>
+        <li>Trong <strong>Select scopes</strong>, tích <code>public_repo</code>.</li>
+        <li>Nhấn <strong>Generate token</strong>, sao chép token vừa tạo.</li>
+        <li>Quay lại Showcase, dán token vào ô bên dưới và nhấn <strong>Kết nối</strong>.</li>
+      </ol>
+      <p>Token classic với scope public_repo có thể truy cập các repo public khác mà tài khoản của bạn được phép ghi. Chọn thời hạn ngắn và thu hồi token khi không còn cần dùng.</p>
+    </details>
+    <details class="field-hint">
+      <summary><strong>Bạn là chủ repo Kintinz</strong></summary>
+      <p><a class="button secondary small" href="https://github.com/settings/personal-access-tokens/new?name=Showcase&amp;target_name=Kintinz&amp;expires_in=30&amp;contents=write&amp;actions=read" target="_blank" rel="noopener noreferrer">Tạo fine-grained token cho Showcase ↗</a></p>
+      <ol>
+        <li>Trang tạo token điền sẵn tên <code>Showcase</code>, <strong>Resource owner: Kintinz</strong> và thời hạn 30 ngày.</li>
+        <li>Trong <strong>Repository access</strong>, chọn <strong>Only select repositories</strong>, rồi chọn <code>showcase</code>.</li>
+        <li>Kiểm tra <strong>Contents: Read and write</strong>, <strong>Actions: Read</strong> và <strong>Metadata: Read</strong>.</li>
+        <li>Nhấn <strong>Generate token</strong>, sao chép token rồi quay lại Showcase để kết nối.</li>
+      </ol>
+    </details>
+    <label class="field">Token GitHub cá nhân<input id="github-token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Nhập token GitHub của bạn" aria-describedby="token-note" required></label>
+    <p id="token-note" class="field-hint">Token chỉ hiển thị một lần trên GitHub. Không chia sẻ token; Showcase chỉ giữ token trong bộ nhớ tab. Tải lại trang sẽ cần kết nối lại.</p>
+    <p id="connect-error" class="error" role="alert"></p>
+    <div class="dialog-actions"><button type="button" class="button secondary" data-close>Hủy</button><button id="connect-button" class="button primary" type="submit">Kết nối</button></div>
+  </form></dialog>
   <dialog id="upload-dialog"><form id="upload-form"><div class="dialog-heading"><div><p class="eyebrow">THÊM Ý TƯỞNG MỚI</p><h2>Đăng giao diện</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng">×</button></div><label class="dropzone" id="dropzone"><span aria-hidden="true">↥</span><strong>Chọn hoặc kéo thả source vào đây</strong><small>HTML hoặc ZIP · tối đa 2 MiB · tối đa 20 file</small><input name="file" id="file" type="file" accept=".html,.htm,.zip" required></label><p id="file-info" class="field-hint">ZIP cần có index.html ở thư mục gốc.</p><label class="field">Tên giao diện<input name="name" maxlength="100" placeholder="Ví dụ: Landing page mùa lễ hội" required></label><label class="field">Đường dẫn (slug)<input name="slug" maxlength="64" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="landing-festival" required><small id="url-preview">Dùng chữ thường, số và dấu gạch ngang.</small></label><p id="upload-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close>Hủy</button><button id="publish-button" class="button primary" type="submit">Xuất bản giao diện ↗</button></div></form></dialog>
   <dialog id="delete-dialog"><form id="delete-form"><div class="dialog-heading"><div><p class="eyebrow">XÁC NHẬN THAO TÁC</p><h2>Xóa giao diện?</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng">×</button></div><p id="delete-description"></p><p class="field-hint">Source và thông tin giao diện sẽ bị xóa khỏi phiên bản hiện tại của repo. Lịch sử Git vẫn giữ các commit cũ.</p><label class="field">Nhập slug để xác nhận<input id="delete-confirm" autocomplete="off" required></label><p id="delete-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close>Giữ lại</button><button class="button danger" id="delete-button" type="submit" disabled>Xóa giao diện</button></div></form></dialog>
 </body></html>
