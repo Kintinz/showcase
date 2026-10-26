@@ -40,6 +40,14 @@ test('adapter surfaces revoked token and denied scopes without leaking token', a
     await assert.rejects(() => github.identity(), e => e.status === status && !e.message.includes('private-value'));
   }
 });
+test('browser native fetch receives its required global receiver', async () => {
+  const browserFetch = async function () {
+    if (this !== globalThis) throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+    return Response.json({ id: 42, login: 'alice' });
+  };
+  const github = new PagesGitHub(config, 'test-token', browserFetch);
+  assert.deepEqual(await github.identity(), { id: 42, login: 'alice' });
+});
 test('Pages-only client publishes source, filters owner, checks deployment and deletes own files', async () => {
   const fixture = repositoryFixture({ 'catalog/other.json': JSON.stringify({ ownerId: 7, slug: 'other', name: 'Other' }), 'projects/other/index.html': 'keep me' });
   const client = new ShowcaseClient(config, fixture.fetcher, async () => Response.json(fixture.marker()));

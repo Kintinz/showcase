@@ -14,7 +14,7 @@ export class PagesGitHub {
   #token;
   constructor(config, token, fetcher = fetch) {
     if (!token?.trim()) fail(401, 'MISSING_TOKEN', 'Nhập token GitHub cá nhân để kết nối.');
-    this.#token = token.trim(); this.config = config; this.fetcher = fetcher;
+    this.#token = token.trim(); this.config = config; this.fetcher = fetcher.bind(globalThis);
     this.root = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}`;
   }
   clear() { this.#token = ''; }
