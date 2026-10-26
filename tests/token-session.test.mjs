@@ -32,11 +32,11 @@ test('default connection survives reload within tab but is not stored persistent
   const newTab = new TokenStore({ key: 'test-repo-token', session: () => storage(), local: () => local });
   assert.equal(newTab.load(), null);
 });
-test('remember on device expires after exactly seven days; expired token is removed', () => {
+test('remember on device expires after exactly thirty days; expired token is removed', () => {
   const { store, local, session, advance } = fixture();
-  assert.equal(REMEMBER_DAYS, 7); store.save('remembered-token', true);
+  assert.equal(REMEMBER_DAYS, 30); store.save('remembered-token', true);
   assert.equal(session.getItem('test-repo-token'), null); assert.ok(local.getItem('test-repo-token'));
-  advance(7 * 24 * 60 * 60 * 1000 - 1); assert.equal(store.load().token, 'remembered-token');
+  advance(30 * 24 * 60 * 60 * 1000 - 1); assert.equal(store.load().token, 'remembered-token');
   advance(1); assert.equal(store.load(), null); assert.equal(local.getItem('test-repo-token'), null);
 });
 test('changing remember mode or account clears the previous token in the other storage', () => {
@@ -56,7 +56,7 @@ test('malformed records are ignored; blocked storage does not break a connection
   const result = await connection.connect('memory-only', true);
   assert.equal(result.account.user.id, 42); assert.equal(result.stored, false);
 });
-test('restore verifies GitHub again without extending the original seven-day expiry', async () => {
+test('restore verifies GitHub again without extending the original thirty-day expiry', async () => {
   const { store, local, advance } = fixture(); store.save('restore-token', true);
   const original = local.getItem('test-repo-token'); advance(10000);
   const client = fakeClient(), connection = new SavedConnection(client, store);

@@ -1,6 +1,7 @@
 import { ShowcaseClient } from './client.js';
 import { SavedConnection, TokenStore } from './connection.js';
 import { config } from './config.js';
+import { progressText, updateProgress } from './progress.js';
 const $ = selector => document.querySelector(selector);
 const tokenStore = new TokenStore({ key: `showcase-token:${config.owner}/${config.repo}:${config.branch}` });
 const client = new SavedConnection(new ShowcaseClient(), tokenStore, () => resetConnection('Token không hợp lệ hoặc đã hết hạn. Vui lòng kết nối lại.'));
@@ -43,6 +44,8 @@ function render() {
     const remove = element('button', 'delete', 'Xóa'); remove.type = 'button'; remove.disabled = !me.canPublish; remove.addEventListener('click', () => openDelete(project));
     actions.append(open, copyButton, remove); body.append(actions);
     const date = new Date(project.createdAt); body.append(element('div', 'card-date', Number.isNaN(date.getTime()) ? `Đăng bởi @${me.user.login}` : `Đã đăng ${date.toLocaleDateString('vi-VN')}`));
+    const job = pending.find(j => j.operation === 'publish' && j.slug === project.slug);
+    if (job) body.append(element('div', 'card-date', progressText(job)));
     card.append(art, body); $('#projects').append(card);
   }
 }
@@ -50,13 +53,14 @@ async function refreshProjects() { const version = connectionVersion, loaded = a
 function savePending() { if (!me) return; try { sessionStorage.setItem(`showcase-jobs-${me.user.id}`, JSON.stringify(pending)); } catch { /* Progress remains available until this tab is closed. */ } }
 function renderJobs() {
   $('#jobs').replaceChildren();
-  const labels = { saved: 'Đã lưu thay đổi vào GitHub', queued: 'Đang chờ xuất bản', deploying: 'Đang xuất bản', ready: 'Đã hoàn tất', failed: 'Xuất bản chưa hoàn tất' };
+  const labels = { saved: 'Đã lưu thay đổi vào GitHub', queued: 'Đang chờ triển khai lên Pages', deploying: 'Đang triển khai lên Pages', ready: 'Đã hoàn tất', failed: 'Triển khai thất bại' };
   for (const job of pending) {
     const box = element('article', 'job'); box.dataset.state = job.state;
     box.append(element('strong', '', `${job.operation === 'delete' ? 'Xóa' : 'Đăng'} /${job.slug}/ — ${labels[job.state] || labels.queued}`));
-    const text = job.state === 'ready' ? (job.operation === 'delete' ? 'Source đã xóa và bản xuất bản mới đã gỡ giao diện.' : 'Giao diện đã sẵn sàng để chia sẻ.') : job.error || (job.operation === 'delete' ? 'Source đã xóa khỏi phiên bản hiện tại. Đang chờ gỡ giao diện trên website.' : 'Source đã lưu. Link chỉ sẵn sàng khi quá trình xuất bản hoàn tất.');
+    const text = progressText(job);
     box.append(element('p', '', text)); const actions = element('div', 'job-actions');
     if (job.state === 'ready' && job.operation === 'publish') { const link = element('a', '', 'Mở giao diện ↗'); link.href = viewerUrl(job.slug); link.target = '_blank'; link.rel = 'noopener noreferrer'; actions.append(link); }
+    if (job.state === 'failed') { const link = element('a', '', 'Xem GitHub Actions ↗'); link.href = `https://github.com/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/actions/workflows/pages.yml`; link.target = '_blank'; link.rel = 'noopener noreferrer'; actions.append(link); }
     const check = element('button', '', 'Kiểm tra lại'); check.type = 'button'; check.addEventListener('click', () => checkJob(job).then(renderJobs));
     const dismiss = element('button', '', 'Ẩn thông báo'); dismiss.type = 'button'; dismiss.addEventListener('click', () => { pending = pending.filter(p => p !== job); savePending(); renderJobs(); });
     actions.append(check, dismiss); box.append(actions); $('#jobs').append(box);
@@ -64,7 +68,7 @@ function renderJobs() {
 }
 async function checkJob(job) {
   const version = connectionVersion;
-  try { const result = await client.status(job); if (version !== connectionVersion) return; Object.assign(job, result); if (job.state === 'ready') await refreshProjects(); }
+  try { const result = await client.status(job); if (version !== connectionVersion) return; updateProgress(job, result); if (job.state === 'ready') await refreshProjects(); }
   catch (error) { if (version !== connectionVersion) return; job.error = error.message; }
   savePending();
 }
@@ -79,7 +83,7 @@ async function poll() {
   if (me && version === connectionVersion && pending.some(j => !['ready', 'failed'].includes(j.state))) pollTimer = setTimeout(poll, 12000);
 }
 function addJob(result) {
-  pending = pending.filter(p => p.slug !== result.slug); pending.unshift(result); savePending(); renderJobs(); poll();
+  pending = pending.filter(p => p.slug !== result.slug); pending.unshift({ ...result, startedAt: new Date().toISOString() }); savePending(); renderJobs(); poll();
 }
 function openDelete(project) {
   deleting = project; $('#delete-form').reset(); $('#delete-error').textContent = ''; $('#delete-button').disabled = true;
@@ -150,3 +154,10 @@ async function restoreConnection() {
   } finally { restoring = false; for (const button of document.querySelectorAll('[data-connect]')) button.disabled = false; }
 }
 restoreConnection();
+setInterval(() => {
+  if (!me || !pending.some(j => !['ready', 'failed'].includes(j.state))) return;
+  for (const [index, box] of Array.from($('#jobs').children).entries()) {
+    const job = pending[index];
+    if (job) box.querySelector('p').textContent = progressText(job);
+  }
+}, 1000);

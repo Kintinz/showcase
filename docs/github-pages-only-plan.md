@@ -1,6 +1,6 @@
 # Chuyển sang GitHub Pages, không backend
 
-**Cập nhật đã được xác nhận:** mặc định nhớ token trong sessionStorage của tab; checkbox tùy chọn nhớ 7 ngày trong localStorage. Khôi phục luôn xác minh GitHub lại; ngắt kết nối hoặc HTTP 401 xóa cả hai nơi lưu, lỗi mạng giữ lại. Mục giữ token chỉ trong bộ nhớ bên dưới là thiết kế ban đầu, đã được thay thế bởi cập nhật này.
+**Cập nhật đã được xác nhận:** mặc định nhớ token trong sessionStorage của tab; checkbox tùy chọn nhớ 30 ngày trong localStorage. Khôi phục luôn xác minh GitHub lại; ngắt kết nối hoặc HTTP 401 xóa cả hai nơi lưu, lỗi mạng giữ lại. Mục giữ token chỉ trong bộ nhớ bên dưới là thiết kế ban đầu, đã được thay thế bởi cập nhật này.
 
 Yêu cầu đã được xác nhận trong chat: không server/hosting riêng/Cloudflare; mỗi người nhập token GitHub cá nhân; chỉ liệt kê và cho xóa giao diện của mình trong ứng dụng.
 

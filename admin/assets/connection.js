@@ -1,4 +1,4 @@
-export const REMEMBER_DAYS = 7;
+export const REMEMBER_DAYS = 30;
 const REMEMBER_MS = REMEMBER_DAYS * 24 * 60 * 60 * 1000;
 
 export class TokenStore {

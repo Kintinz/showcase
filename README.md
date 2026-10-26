@@ -7,7 +7,7 @@ Trang quản lý: https://kintinz.github.io/showcase/
 ## Cách sử dụng
 
 1. Mở trang quản lý, chọn **Kết nối GitHub**.
-2. Nhập personal access token (PAT) của chính bạn. Mặc định, token được nhớ bằng sessionStorage trong tab nên tải lại trang không cần nhập lại. Tích **Ghi nhớ trên thiết bị này trong 7 ngày** để lưu bằng localStorage và kết nối lại ở lần mở sau.
+2. Nhập personal access token (PAT) của chính bạn. Mặc định, token được nhớ bằng sessionStorage trong tab nên tải lại trang không cần nhập lại. Tích **Ghi nhớ trên thiết bị này trong 30 ngày** để lưu bằng localStorage và kết nối lại ở lần mở sau.
 3. Ứng dụng kiểm tra danh tính và quyền repo. Tài khoản cần được cấp quyền ghi `Kintinz/showcase` để đăng hoặc xóa.
 4. Chọn **Đăng giao diện**, upload HTML/ZIP, nhập tên và slug. Ứng dụng tự lưu source cùng metadata thành một commit.
 5. Chờ GitHub Actions xuất bản xong, mở hoặc copy link gửi người khác. Người xem link không cần token.
@@ -27,7 +27,7 @@ Token không cấp thêm quyền ngoài những quyền tài khoản đã có. C
 
 Ứng dụng chỉ gửi Authorization tới `https://api.github.com`, không chuyển tiếp qua server khác. Chỉ lưu token sau khi GitHub xác thực thành công; khi khôi phục vẫn kiểm tra lại danh tính và quyền repo. Không có đăng nhập OAuth, cookie HttpOnly hoặc API backend trong bản này.
 
-**Nhớ kết nối:** chế độ mặc định dùng phiên tab của trình duyệt. Tùy chọn 7 ngày dùng localStorage; quá hạn thì xóa khi website đọc lại, không tự gia hạn mỗi lần tải trang. Nút **Ngắt kết nối** xóa token khỏi bộ nhớ và cả hai nơi lưu. HTTP 401 xóa token đã lưu; lỗi mạng/403 không tự xóa để người dùng còn thử lại. Khi trình duyệt chặn storage, vẫn có thể kết nối trong trang hiện tại và UI báo rõ không lưu được.
+**Nhớ kết nối:** chế độ mặc định dùng phiên tab của trình duyệt. Tùy chọn 30 ngày dùng localStorage; quá hạn thì xóa khi website đọc lại, không tự gia hạn mỗi lần tải trang. Nút **Ngắt kết nối** xóa token khỏi bộ nhớ và cả hai nơi lưu. HTTP 401 xóa token đã lưu; lỗi mạng/403 không tự xóa để người dùng còn thử lại. Khi trình duyệt chặn storage, vẫn có thể kết nối trong trang hiện tại và UI báo rõ không lưu được.
 
 Token trong Web Storage có thể bị JavaScript cùng origin đọc nếu ứng dụng bị XSS. Chỉ bật ghi nhớ lâu trên máy cá nhân. Sandbox viewer vẫn được giữ để mã upload không đọc được storage trang quản lý. Ngắt kết nối không thu hồi token trên GitHub và không đăng xuất các tab khác đang giữ token trong bộ nhớ.
 
@@ -47,7 +47,7 @@ Mỗi deployment tạo artifact sạch: giao diện đã xóa không còn packag
 
 ```mermaid
 flowchart TD
-    A[GitHub Pages: admin] --> B[Khôi phục token trong phiên tab hoặc nhớ 7 ngày]
+    A[GitHub Pages: admin] --> B[Khôi phục token trong phiên tab hoặc nhớ 30 ngày]
     B --> C[GitHub API: danh tính và quyền ghi]
     C --> D[Upload hoặc xóa source và metadata]
     D --> E[GitHub Actions]
@@ -130,3 +130,9 @@ Fixture trình duyệt tại `http://localhost:4175/showcase/`, chỉ nhập tok
 - https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
 - https://docs.github.com/en/rest/repos/repos#get-a-repository
 - https://docs.github.com/en/rest/git/trees
+
+### Theo dõi triển khai Pages
+
+Sau khi lưu source vào GitHub, trang hiển thị trạng thái triển khai và thời gian đã chờ. Chỉ ghi mốc “Đã lên Pages” khi kiểm tra marker xác nhận đúng lần upload; đây là thời điểm trình duyệt xác nhận, không phải timestamp nội bộ của GitHub. Tiến trình và mốc này dùng sessionStorage hiện có, giữ khi tải lại cùng tab; không phải lịch sử triển khai lâu dài và không tự bổ sung cho giao diện cũ.
+
+Ghi nhớ kết nối tối đa 30 ngày không kéo dài hạn token GitHub. Token hết hạn hoặc bị thu hồi sớm sẽ bị xóa khi GitHub trả HTTP 401. Bản ghi cũ 7 ngày giữ nguyên hạn ban đầu; kết nối lại và chọn ghi nhớ để áp dụng 30 ngày.
