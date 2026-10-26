@@ -6,6 +6,7 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
     "dev": "node scripts/dev.mjs",
     "build:pages": "node scripts/build-showcase.ts"
   }

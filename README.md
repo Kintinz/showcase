@@ -1,191 +1,128 @@
-# Showcase
+# Showcase — chỉ dùng GitHub Pages
 
-Website đăng tải giao diện HTML/CSS/JS để chia sẻ link xem và chốt UI. Source được lưu trong một GitHub repo chung; không sử dụng SQL/database.
+Website upload HTML/CSS/JS, lưu source vào repo GitHub chung và tạo link xem giao diện. **Không cần Cloudflare, server, database hoặc GitHub App.**
 
-## Hành vi đã triển khai trong source
+Trang quản lý: https://kintinz.github.io/showcase/
 
-- Đăng nhập GitHub; backend xác minh tài khoản bằng GitHub user access token.
-- Chỉ tài khoản có quyền ghi hiệu lực trên repo đích được đăng hoặc xóa. Write/Maintain/Admin đều hợp lệ; Read/Triage/người ngoài repo không hợp lệ.
-- Trang quản lý mặc định chỉ trả về giao diện do tài khoản đăng nhập upload. Chủ sở hữu gắn với GitHub user ID, không phụ thuộc tên tài khoản có thể thay đổi.
-- Upload một HTML chứa sẵn CSS/JS hoặc ZIP có `index.html` tại gốc. Nhập tên và slug, tự tạo commit source cùng metadata.
-- Xóa: phải là chủ sở hữu, còn quyền ghi và xác nhận slug. Source + metadata được xóa trong một commit. Không có ngoại lệ Admin xóa giao diện của người khác qua ứng dụng.
-- Viewer Desktop/Tablet/Mobile, mở tab riêng, toàn màn hình, copy link.
-- Tách trạng thái đã lưu GitHub với đã xuất bản. Bản xem chỉ sẵn sàng sau khi marker trên Pages chứng minh deployment có chứa commit.
+## Cách sử dụng
 
-**Trạng thái bàn giao:** source local và các kiểm thử tự động; chưa push, chưa tạo GitHub App, chưa cấu hình Cloudflare/GitHub Pages, chưa xác minh đăng nhập hoặc publish/xóa trên dịch vụ thật. Browser fixture là dữ liệu test trong bộ nhớ, không phải repo GitHub thật.
+1. Mở trang quản lý, chọn **Kết nối GitHub**.
+2. Nhập personal access token (PAT) của chính bạn. Token chỉ giữ trong bộ nhớ tab, không localStorage/sessionStorage; tải lại trang cần nhập lại.
+3. Ứng dụng kiểm tra danh tính và quyền repo. Tài khoản cần được cấp quyền ghi `Kintinz/showcase` để đăng hoặc xóa.
+4. Chọn **Đăng giao diện**, upload HTML/ZIP, nhập tên và slug. Ứng dụng tự lưu source cùng metadata thành một commit.
+5. Chờ GitHub Actions xuất bản xong, mở hoặc copy link gửi người khác. Người xem link không cần token.
+6. Danh sách mặc định chỉ hiện giao diện do tài khoản đang kết nối đăng tải. Xóa cần là chủ sở hữu, còn quyền ghi repo và nhập đúng slug để xác nhận.
 
-## Chạy và kiểm tra local
+**Quyền sở hữu là quy tắc của ứng dụng, không phải ACL theo thư mục của GitHub.** Người có Write trên repo vẫn có thể sửa/xóa source trực tiếp bằng GitHub/Git. Source và metadata của repo public không riêng tư. Không đưa dữ liệu nội bộ nhạy cảm lên đây.
 
-Yêu cầu Node.js 24 trở lên. Bản này không có dependency bên thứ ba và không cần `npm install`.
+## Tạo token
+
+Token không cấp thêm quyền ngoài những quyền tài khoản đã có. Chủ repo phải add tài khoản và người được mời phải chấp nhận lời mời trước.
+
+- Nếu dùng được fine-grained PAT: chọn repo đích; **Contents: Read and write**, **Metadata: Read**, **Actions: Read** để theo dõi workflow. Không cần Workflows write, Administration hoặc secret của ứng dụng.
+- GitHub có giới hạn fine-grained PAT đối với cộng tác viên trên repo public của tài khoản cá nhân khác. Trường hợp đó dùng PAT classic với scope **public_repo**; scope này rộng hơn một repo, nên đặt hạn sử dụng ngắn và tự thu hồi khi không cần nữa.
+- Tạo token ở https://github.com/settings/tokens . Không đặt token trong source, URL, issue, chat hoặc cấu hình public.
+- Repo public không có nghĩa người ngoài được ghi. Tài khoản Read/Triage/outsider bị khóa thao tác đăng/xóa trong ứng dụng; GitHub cũng thực thi quyền repo và scope token cho mỗi API request.
+- Nếu branch protection không cho token ghi trực tiếp, thao tác sẽ bị từ chối. Không tự bỏ bảo vệ branch.
+
+Ứng dụng chỉ gửi Authorization tới `https://api.github.com`, không chuyển tiếp qua server khác. Ngắt kết nối/đóng tab bỏ token đang giữ trong bộ nhớ. Không có đăng nhập OAuth, cookie phiên hoặc API backend trong bản này.
+
+## CI/CD và bật Pages
+
+Trong **Settings → Pages → Build and deployment**, chọn **Source: GitHub Actions**. Nếu chọn Deploy from a branch, Jekyll có thể hiển thị README thay cho ứng dụng quản lý.
+
+- `check.yml`: Pull Request vào main, push main hoặc chạy thủ công → kiểm tra cú pháp, tests và build toàn bộ site.
+- `pages.yml`: push main hoặc chạy thủ công → job build chạy kiểm tra, tạo artifact, upload artifact → job deploy chỉ chạy khi build đạt.
+- Job build chỉ có Contents read; job deploy có Pages write và OIDC token. Không cần thêm secrets để deploy Pages.
+- PAT người upload ghi commit vào main sẽ kích hoạt workflow. Không dùng token dùng chung và không dùng GITHUB_TOKEN trong trình duyệt.
+- API Actions read giúp hiển thị lỗi/tiến trình chi tiết. Marker public theo commit + uploadId là bằng chứng bản xem đã sẵn sàng.
+
+Mỗi deployment tạo artifact sạch: giao diện đã xóa không còn package trong bản mới. Repo main và default branch/Pages settings cần khớp; deployment environment không được giới hạn vào nhánh khác.
+
+## Cách ly bản xem
+
+```mermaid
+flowchart TD
+    A[GitHub Pages: admin] --> B[Token cá nhân trong bộ nhớ]
+    B --> C[GitHub API: danh tính và quyền ghi]
+    C --> D[Upload hoặc xóa source và metadata]
+    D --> E[GitHub Actions]
+    E --> F[Artifact: admin + viewer + JSON packages]
+    F --> G[Viewer chạy HTML trong iframe sandbox]
+```
+
+Source vẫn lưu tại `projects/{slug}/`; artifact không phục vụ HTML/JS/SVG upload trực tiếp trên origin trang quản lý. Builder tạo `previews/{slug}.json` chứa source mã hóa base64. Viewer dựng blob URLs bên trong iframe `sandbox="allow-scripts allow-forms"`, không cấp same-origin, popup hoặc top-navigation. Mở tab mới và link `/{slug}/` đều qua viewer tin cậy.
+
+Đây là cơ chế cách ly trình duyệt, không phải quét virus hay xác nhận code upload đáng tin cậy. Người nhận vẫn cần tự đánh giá nguồn giao diện.
+
+## Source và chạy local
+
+Yêu cầu Node.js 24+. Không cần npm install hoặc dependency bên thứ ba.
 
 ```powershell
-node --test tests/*.test.mjs
+node scripts/check.mjs
 node scripts/dev.mjs
 ```
 
-Mở `http://localhost:4173`. Nếu chưa có biến môi trường, giao diện hiển thị trang đăng nhập và thông báo chưa cấu hình; không giả đăng nhập hoặc ghi GitHub. Dev server chỉ bind loopback. Luồng OAuth production cần HTTPS; Node dev server chỉ dùng kiểm tra UI/source, không thay thế Worker runtime.
+Mở `http://localhost:4173/showcase/`. Dev server build đúng artifact static, gồm base path `/showcase/`, rồi chỉ phục vụ file tĩnh. Nếu nhập PAT thật, trình duyệt gọi GitHub thật; chỉ thao tác upload/xóa khi có chủ đích.
 
-Để kiểm tra UI với dữ liệu giả lập, chạy riêng:
+Build thủ công:
 
 ```powershell
-node tests/browser-fixture.mjs
+$env:GITHUB_SHA = git rev-parse HEAD
+node scripts/build-showcase.ts
 ```
 
-Mở `http://localhost:4174/__fixture/login`. Tài khoản `demo-user` và source chỉ tồn tại trong bộ nhớ, dừng process sẽ mất. Fixture này KHÔNG được import hoặc deploy trong Worker. Các link dùng `preview.example.test` là placeholder để không nhầm với deployment thật.
-
-## Kiến trúc
-
-```mermaid
-flowchart LR
-    U[Người đăng] --> W[Worker: admin UI và API]
-    W --> L[GitHub login và kiểm tra quyền]
-    W --> R[GitHub repo: projects + catalog]
-    R --> A[Actions: chỉ đóng gói file tĩnh]
-    A --> P[GitHub Pages: origin riêng]
-    V[Người xem có link] --> P
-```
+Artifact mới nằm trong `.build/pages-<timestamp>/`. Không ghi đè artifact cũ.
 
 ```text
-admin/                   HTML/CSS/JS trang quản lý
-worker/src/auth.ts       OAuth, session mã hóa, CSRF
-worker/src/github.ts     GitHub App JWT, token và Git API
-worker/src/permissions.ts Quyền ghi và quyền sở hữu
-worker/src/package.ts    Kiểm tra file và giải nén ZIP
-worker/src/publish.ts    Commit thêm source và metadata
-worker/src/delete.ts     Commit xóa source và metadata
-worker/src/status.ts     Theo dõi bản xuất bản theo commit
-worker/src/index.ts      API router và admin assets
-viewer/                  Khung xem trên Pages
-projects/{slug}/         Source người dùng (tạo khi upload)
-catalog/{slug}.json       Metadata gồm ownerId, uploadId, tên, slug, thời gian
-scripts/build-showcase.ts Artifact Pages sạch theo catalog hiện tại
-tests/                   Tests và browser fixture local
-wrangler.jsonc.example   Mẫu cấu hình, chưa phải cấu hình deploy đang hoạt động
+admin/                       Trang quản lý tĩnh
+admin/assets/client.js       GitHub PAT adapter + thao tác repo
+admin/assets/config.js       owner/repo/branch public, không có token
+worker/src/package.ts        Validation dùng chung, xuất thành JS khi build
+worker/src/publish.ts         Commit tạo giao diện
+worker/src/delete.ts          Commit xóa source/metadata của owner
+worker/src/status.ts          Kiểm tra bản deploy theo commit/uploadId
+viewer/                      Viewer và runtime sandbox
+projects/{slug}/             Source upload trong repo
+catalog/{slug}.json           ownerId, uploadId, name, slug, createdAt
+scripts/build-showcase.ts     Tạo artifact tĩnh an toàn
+scripts/check.mjs             Kiểm tra cú pháp + tests
+.github/workflows/            CI và Pages CD
 ```
 
-Mapping source `projects/demo/index.html` → artifact `demo/index.html` → `https://kintinz.github.io/showcase/demo/`.
-Viewer: `https://kintinz.github.io/showcase/viewer/?slug=demo`.
+Các module core có đuôi .ts hiện dùng cú pháp JavaScript hợp lệ; builder chuyển import/extension sang .js cho trình duyệt. Không dùng TypeScript compiler và chưa có static typecheck.
 
-Trang gốc Pages không liệt kê mọi giao diện. Danh sách cá nhân được truy xuất qua API đã đăng nhập. Người có link vẫn mở được giao diện công khai.
+Worker router/OAuth/GitHub App cũ và `wrangler.jsonc.example` chỉ được giữ để đối chiếu lịch sử, không được build/deploy hoặc cần cấu hình trong bản Pages. Không chạy fixture Worker cũ `tests/browser-fixture.mjs` với UI mới.
 
-## Thiết lập dịch vụ — cần được chủ repo cho phép trước khi thực hiện
+## Upload và giới hạn preview
 
-Các bước dưới đây là hướng dẫn, chưa được thực hiện tự động.
+- HTML đơn có CSS/JS inline hoặc ZIP thường có `index.html` ở gốc.
+- Tối đa 2 MiB upload, 10 MiB giải nén, 2 MiB/file, 20 entry ZIP kể cả thư mục. Stored/deflate; không ZIP64, nhiều volume, mã hóa, symlink hoặc ZIP lồng.
+- HTML, CSS, JS/MJS, JSON, PNG/JPEG/GIF/WEBP/SVG/ICO/AVIF, WOFF/WOFF2/TTF/OTF, TXT.
+- Slug chữ thường/số/gạch ngang, tối đa 64 ký tự; không ghi đè slug đã có.
+- Dùng đường dẫn tương đối cho file trong gói. Có hỗ trợ CSS url/import, script ngoài, ảnh/font, một số import module, fetch/XHR local, link sang trang HTML khác.
+- Preview không phải môi trường hosting đầy đủ: không service worker, cookie/localStorage cùng origin, popup, framework cần build hoặc server-side API. Module import vòng và đường dẫn được tạo động phức tạp có thể cần gộp thành HTML độc lập trước khi upload. Tài nguyên từ CDN ngoài vẫn phụ thuộc CORS và chính sách CDN.
+- Desktop/Tablet/Mobile chỉ đổi kích thước khung xem; cần kiểm tra thiết bị thật riêng.
 
-### 1. Đưa source lên repo
+## Xóa
 
-Repo đích: `Kintinz/showcase`. Repo ban đầu trống; cần đưa source này lên branch được chọn trước khi API có thể đọc cây Git và commit upload. Bản mẫu dùng `main`; không tự bypass branch protection.
+Ứng dụng đối chiếu ownerId ổn định với user ID trả về từ GitHub, không chỉ username. Tạo một commit xóa source + metadata, không force push và không xóa lịch sử Git. Trong lúc chờ deploy, bản cũ có thể còn xem được; chỉ báo đã gỡ khi marker mới chứng minh slug đã biến mất. Không thu hồi được bản người xem đã tải/cache.
 
-Nếu ruleset không cho phép ứng dụng ghi trực tiếp, cần chốt branch dữ liệu riêng hoặc cơ chế tích hợp phù hợp trước. Khi đổi branch, cập nhật đồng bộ biến `GITHUB_BRANCH` và danh sách branch trong workflow. Chỉ owner thực hiện/cho phép thay đổi quyền và ruleset.
+## Kiểm thử và giới hạn bằng chứng
 
-### 2. GitHub App
-
-Tạo GitHub App và chỉ cài trên repo `Kintinz/showcase`.
-
-Repository permissions cần dùng:
-
-| Permission | Mức | Mục đích |
-|---|---|---|
-| Metadata | Read | Kiểm tra quyền người dùng trên repo |
-| Contents | Read and write | Đọc source, tạo blobs/tree/commit và cập nhật branch |
-| Actions | Read | Đọc workflow run để phản ánh tiến trình |
-
-Không cấp quyền sửa workflow từ upload. Không cần webhook cho bản hiện tại. Mỗi người đăng cần authorize App bằng luồng đăng nhập.
-
-Đặt callback URL chính xác: `https://<admin-origin>/api/auth/callback`.
-
-GitHub App key cần định dạng PKCS#8 (`BEGIN PRIVATE KEY`). Nếu key tải xuống là PKCS#1 (`BEGIN RSA PRIVATE KEY`), chuyển trên máy quản trị bằng OpenSSL:
-
-```text
-openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in github-app.pem -out github-app-pkcs8.pem
+```powershell
+node --test tests/*.test.mjs
+node tests/pages-browser-fixture.mjs
 ```
 
-Giữ key ngoài repo. `.gitignore` đã bỏ qua `.pem`, `.env`, `.dev.vars`. Không gửi key hoặc secret qua chat.
+Fixture trình duyệt tại `http://localhost:4175/showcase/`, chỉ nhập token dùng riêng cho test `fixture-token`. GitHub được giả lập trong bộ nhớ, không có network write lên GitHub. Không nhập PAT thật vào fixture. Dừng process sẽ mất dữ liệu. Fixture và test token không được đưa vào artifact deploy.
 
-### 3. Worker và admin assets
+Đã có unit/integration cho PAT, quyền, owner, upload/xóa, ZIP, commit conflict, deployment marker và artifact isolation; browser fixture kiểm tra UI và runtime sandbox. Không coi kết quả giả lập là bằng chứng PAT người dùng thật, branch protection hoặc deployment GitHub thật đã hoạt động.
 
-Mẫu `wrangler.jsonc.example` chứa cấu trúc binding `ASSETS` và các biến không bí mật. Tạo cấu hình hoạt động sau khi kiểm tra tài khoản Cloudflare và được cho phép; không deploy nguyên mẫu có `REPLACE_ME`.
+## Tài liệu đối chiếu
 
-Biến cấu hình:
-
-| Tên | Giá trị |
-|---|---|
-| GITHUB_OWNER | Kintinz |
-| GITHUB_REPO | showcase |
-| GITHUB_BRANCH | main hoặc branch dữ liệu đã chốt |
-| PREVIEW_BASE_URL | https://kintinz.github.io/showcase/ hoặc Pages domain thực tế |
-| GITHUB_APP_ID | App ID |
-| GITHUB_INSTALLATION_ID | Installation ID của App trên repo |
-| GITHUB_CLIENT_ID | Client ID của GitHub App |
-
-Secrets trong Cloudflare, không đặt trong frontend:
-
-- `GITHUB_CLIENT_SECRET`
-- `GITHUB_PRIVATE_KEY` — PEM PKCS#8 đầy đủ
-- `SESSION_SECRET` — giá trị ngẫu nhiên tối thiểu 32 ký tự; đổi giá trị này sẽ làm hết hiệu lực phiên hiện tại
-
-Đặt admin UI và API trên cùng origin HTTPS. `PREVIEW_BASE_URL` phải khác origin quản trị. Session là cookie HttpOnly/Secure/SameSite=Lax, mã hóa AES-GCM, tối đa một giờ. Không lưu token trong localStorage; sessionStorage chỉ giữ mã commit/slug/tiến trình.
-
-Wrangler chưa cài vào dự án; cần xin phép trước khi cài hoặc chạy một công cụ tải package. Có thể dùng quy trình deploy Cloudflare sẵn có của tài khoản sau khi cấu hình được duyệt.
-
-### 4. GitHub Pages
-
-Trong repo, chọn Pages publishing source là GitHub Actions. Workflow `pages.yml` chạy trên push vào branch đã chọn hoặc `workflow_dispatch`. GitHub App installation token dùng để ghi commit; không dùng `GITHUB_TOKEN` của workflow làm token upload rồi kỳ vọng push kích hoạt workflow tiếp theo.
-
-Workflow chạy tests, tạo artifact mới chỉ gồm viewer và các project còn trong catalog, rồi deploy. Marker chứa commit SHA và uploadId hiện tại của từng slug để phân biệt trường hợp xóa rồi tái sử dụng slug. Không copy admin, Worker, metadata owner hoặc secret vào artifact. Không thực thi code JS hay script build của người upload.
-
-Chưa có cam kết chi phí bằng 0: hạn mức GitHub/Cloudflare tùy tài khoản và mức sử dụng. Cần kiểm tra CPU/subrequest thực tế của Worker khi tích hợp. Đọc catalog hiện tại dùng một GitHub blob request mỗi metadata; repo nhiều UI sẽ cần cân nhắc giới hạn runtime/API trước khi mở rộng.
-
-## Định dạng và giới hạn upload
-
-- HTML đơn được lưu thành `index.html`, không tự sửa nội dung HTML/CSS/JS.
-- ZIP: tối đa 2 MiB nén, 10 MiB giải nén, 2 MiB mỗi file, 20 entry kể cả thư mục. Chỉ hỗ trợ ZIP thường, compression stored/deflate; không ZIP64, nhiều volume, mã hóa hoặc symlink.
-- Loại file: HTML, CSS, JS/MJS, JSON, PNG/JPG/JPEG/GIF/WEBP/SVG/ICO/AVIF, WOFF/WOFF2/TTF/OTF và TXT.
-- ZIP phải có `index.html` ngay tại gốc. Không tự tìm entry trong thư mục con.
-- Chặn traversal, path tuyệt đối, thư mục ẩn, file trùng sau chuẩn hóa và archive lồng. Các file upload chỉ được ghi dưới `projects/{slug}/`.
-- Slug tối đa 64 ký tự, chữ thường/số/gạch ngang. Slug tồn tại bị từ chối, không ghi đè.
-- Dùng đường dẫn tương đối như `./assets/main.css`. Kiểm tra tĩnh chặn một số tham chiếu gốc domain và thẻ base; không thể chứng minh mọi URL được JS tạo động đều đúng. Kiểm tra Network sau xuất bản vẫn cần thiết.
-- Viewer sandbox có script/form/modal/download, không cấp same-origin, popup hoặc điều hướng top. UI cần cookie/localStorage/module có CORS có thể không chạy đầy đủ trong khung sandbox; nút “Mở tab mới” mở trang độc lập trên origin preview để kiểm tra.
-
-## Xóa và quyền sở hữu
-
-Ứng dụng chỉ cho chủ sở hữu còn quyền ghi repo xóa project đó. API lấy `ownerId` từ metadata đã lưu, không tin owner do client gửi. Xóa đúng source slug và metadata trong một commit, giữ các UI khác. Xung đột branch được retry hữu hạn và kiểm tra lại quyền/owner, không force push.
-
-Xóa khỏi branch hiện tại không xóa lịch sử commit và không thu hồi bản người xem đã tải/cache. Người có quyền ghi trực tiếp GitHub vẫn có thể thao tác ngoài ứng dụng theo quyền GitHub của họ; ứng dụng không tạo vùng cách ly bảo mật giữa các cộng tác viên có quyền ghi chung repo.
-
-Sau commit xóa, source đã mất nhưng bản Pages cũ có thể còn phục vụ trong lúc chờ deploy. UI giữ tiến trình riêng và chỉ báo hoàn tất khi snapshot public mới không còn slug.
-
-## Contract API
-
-| Endpoint | Ý nghĩa |
-|---|---|
-| GET /api/auth/login | Bắt đầu đăng nhập GitHub |
-| GET /api/auth/callback | Xác minh OAuth state và tạo cookie phiên |
-| POST /api/auth/logout | Xóa cookie phiên; cần CSRF |
-| GET /api/me | Danh tính, quyền publish, CSRF, repo và preview base; không trả token |
-| GET /api/catalog | Chỉ metadata của user hiện tại |
-| POST /api/publishes | Multipart `name`, `slug`, `file`; trả 202 với commit và status URL |
-| DELETE /api/projects/{slug} | Xóa UI của chính user; trả 202 với commit và status URL |
-| GET /api/publishes/{sha}?slug=... | Trạng thái thao tác của user theo commit |
-
-Mọi mutation cần `Origin` khớp origin quản trị và header `X-CSRF-Token` từ `/api/me`. 401: hết/thiếu phiên; 403: thiếu quyền/không phải owner/CSRF; 404: không có project; 409: slug trùng hoặc xung đột Git; 413: quá dung lượng; 422: input không hợp lệ; 502/503: lỗi tích hợp/cấu hình. Lỗi có shape `{ error: { code, message } }`.
-
-## Nghiệm thu trước khi đưa vào sử dụng
-
-- Login thật với owner, collaborator Write, Read/Triage, outsider; kiểm tra cả API gọi trực tiếp.
-- Upload HTML và ZIP thật; source + metadata nằm đúng repo, CSS/JS/ảnh/font hoạt động trên URL Pages có base path.
-- Thu hồi quyền khi form còn mở: publish/delete bị chặn.
-- Hai upload đồng thời không ghi mất UI; cùng slug chỉ một người thành công.
-- Chỉ chủ sở hữu xóa; repo và bản Pages được gỡ đúng project, giữ UI khác.
-- Deployment lỗi/hủy/được thay thế không bị báo thành công sai.
-- Không có token/key trong bundle hoặc artifact; kiểm tra sandbox/origin bằng browser thật.
-- Kiểm tra mobile thật riêng với mô phỏng viewport.
-
-## Nguồn kỹ thuật đối chiếu
-
-- https://docs.github.com/en/rest/collaborators/collaborators#get-repository-permissions-for-a-user
+- https://docs.github.com/en/rest/using-the-rest-api/using-cors-and-jsonp-to-make-cross-origin-requests
+- https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+- https://docs.github.com/en/rest/repos/repos#get-a-repository
 - https://docs.github.com/en/rest/git/trees
-- https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
-- https://developers.cloudflare.com/workers/static-assets/binding/
-- https://developers.cloudflare.com/workers/runtime-apis/web-standards/
-- https://developers.cloudflare.com/workers/configuration/secrets/

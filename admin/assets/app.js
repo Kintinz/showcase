@@ -1,11 +1,7 @@
+import { ShowcaseClient } from './client.js';
 const $ = selector => document.querySelector(selector);
+const client = new ShowcaseClient();
 let me = null, projects = [], deleting = null, pending = [], polling = false;
-async function api(url, options = {}) {
-  const response = await fetch(url, { ...options, credentials: 'same-origin', headers: { ...(me?.csrf ? { 'X-CSRF-Token': me.csrf } : {}), ...options.headers } });
-  const body = await response.json();
-  if (!response.ok) { const error = new Error(body.error?.message || 'Không xử lý được yêu cầu.'); error.status = response.status; throw error; }
-  return body;
-}
 function notice(text) { $('#notice').textContent = text; $('#notice').hidden = !text; }
 function element(tag, className, text) { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; }
 async function copy(text, button) {
@@ -35,7 +31,7 @@ function render() {
     card.append(art, body); $('#projects').append(card);
   }
 }
-async function refreshProjects() { projects = (await api('/api/catalog')).projects; render(); }
+async function refreshProjects() { projects = await client.catalog(); render(); }
 function savePending() { try { sessionStorage.setItem(`showcase-jobs-${me.user.id}`, JSON.stringify(pending)); } catch { /* Progress remains available until this tab is closed. */ } }
 function renderJobs() {
   $('#jobs').replaceChildren();
@@ -52,7 +48,7 @@ function renderJobs() {
   }
 }
 async function checkJob(job) {
-  try { Object.assign(job, await api(job.statusUrl)); if (job.state === 'ready') await refreshProjects(); }
+  try { Object.assign(job, await client.status(job)); if (job.state === 'ready') await refreshProjects(); }
   catch (error) { job.error = error.message; }
   savePending();
 }
@@ -75,7 +71,7 @@ $('#delete-confirm').addEventListener('input', () => { $('#delete-button').disab
 $('#delete-form').addEventListener('submit', async event => {
   event.preventDefault(); if (!deleting || $('#delete-confirm').value !== deleting.slug) return;
   $('#delete-button').disabled = true; $('#delete-error').textContent = '';
-  try { const result = await api(`/api/projects/${encodeURIComponent(deleting.slug)}`, { method: 'DELETE' }); $('#delete-dialog').close(); addJob(result); await refreshProjects(); }
+  try { const result = await client.delete(deleting.slug); $('#delete-dialog').close(); addJob(result); await refreshProjects(); }
   catch (error) { $('#delete-error').textContent = error.message; }
   finally { $('#delete-button').disabled = $('#delete-confirm').value !== deleting?.slug; }
 });
@@ -94,20 +90,30 @@ $('#upload-form').addEventListener('submit', async event => {
   if (!file || file.size > 2 * 1024 * 1024 || !/\.(html?|zip)$/i.test(file.name)) { $('#upload-error').textContent = 'Chọn HTML hoặc ZIP không quá 2 MiB.'; return; }
   $('#publish-button').disabled = true; $('#publish-button').textContent = 'Đang kiểm tra và lưu…';
   try {
-    const result = await api('/api/publishes', { method: 'POST', body: new FormData(event.currentTarget) });
+    const fields = new FormData(event.currentTarget);
+    const result = await client.publish({ name: fields.get('name'), slug: fields.get('slug'), file });
     $('#upload-dialog').close(); $('#upload-form').reset(); fileInfo(); addJob(result); await refreshProjects();
   } catch (error) { $('#upload-error').textContent = error.message; }
   finally { $('#publish-button').disabled = false; $('#publish-button').textContent = 'Xuất bản giao diện ↗'; }
 });
 $('#search').addEventListener('input', render);
-async function init() {
+async function connected(account) {
   try {
-    me = await api('/api/me'); $('#welcome').hidden = true; $('#open-upload').disabled = !me.canPublish;
+    me = account; $('#welcome').hidden = true; $('#open-upload').disabled = !me.canPublish; notice('');
     $('#account').replaceChildren(element('span', 'avatar', me.user.login.slice(0, 1).toUpperCase()), element('span', 'account-name', '@' + me.user.login));
-    const logout = element('button', 'button secondary small', 'Đăng xuất'); logout.addEventListener('click', async () => { try { await api('/api/auth/logout', { method: 'POST' }); location.reload(); } catch (error) { notice(error.message); } }); $('#account').append(logout);
+    const logout = element('button', 'button secondary small', 'Ngắt kết nối'); logout.addEventListener('click', () => { client.disconnect(); me = null; location.reload(); }); $('#account').append(logout);
     if (!me.canPublish) notice('Tài khoản hiện không có quyền ghi repo. Bạn có thể xem danh sách của mình; chức năng đăng và xóa đang bị khóa.');
-    try { const saved = JSON.parse(sessionStorage.getItem(`showcase-jobs-${me.user.id}`) || '[]'); pending = Array.isArray(saved) ? saved.filter(j => /^[a-f0-9]{40}$/.test(j.commitSha) && /^\/api\/publishes\/[a-f0-9]{40}\?slug=[a-z0-9-]+$/.test(j.statusUrl)) : []; } catch { pending = []; }
+    try { const saved = JSON.parse(sessionStorage.getItem(`showcase-jobs-${me.user.id}`) || '[]'); pending = Array.isArray(saved) ? saved.filter(j => /^[a-f0-9]{40}$/.test(j.commitSha) && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(j.slug) && j.slug.length <= 64 && ['publish', 'delete'].includes(j.operation)) : []; } catch { pending = []; }
     await refreshProjects(); renderJobs(); poll();
-  } catch (error) { if (error.status !== 401) notice(error.message); }
+  } catch (error) { notice(error.message); }
 }
-init();
+for (const button of document.querySelectorAll('[data-connect]')) button.addEventListener('click', () => { $('#connect-error').textContent = ''; $('#connect-dialog').showModal(); });
+$('#connect-form').addEventListener('submit', async event => {
+  event.preventDefault(); const input = $('#github-token'); let token = input.value.trim(); input.value = '';
+  $('#connect-button').disabled = true; $('#connect-error').textContent = '';
+  try { const account = await client.connect(token); token = ''; $('#connect-dialog').close(); await connected(account); }
+  catch (error) { $('#connect-error').textContent = error.message; }
+  finally { token = ''; $('#connect-button').disabled = false; }
+});
+$('#connect-dialog').addEventListener('close', () => { $('#github-token').value = ''; });
+render();

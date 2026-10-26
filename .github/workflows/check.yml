@@ -1,8 +1,10 @@
 name: Check
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -13,4 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test tests/*.test.mjs
+      - name: Syntax and tests
+        run: node scripts/check.mjs
+      - name: Build complete static site
+        run: node scripts/build-showcase.ts

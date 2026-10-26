@@ -2,7 +2,7 @@ import { fail } from './errors.ts';
 export const LIMITS = { upload: 2 * 1024 * 1024, expanded: 10 * 1024 * 1024, file: 2 * 1024 * 1024, count: 20 };
 const allowed = /\.(html?|css|js|mjs|json|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf|txt)$/i;
 export function validateSlug(slug) {
-  if (typeof slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 64 || ['viewer', 'assets', 'api', 'catalog', 'projects', 'admin', 'index', '404'].includes(slug)) fail(422, 'INVALID_SLUG', 'Slug gồm chữ thường, số, dấu gạch ngang; tối đa 64 ký tự và không trùng đường dẫn hệ thống.');
+  if (typeof slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 64 || ['viewer', 'assets', 'previews', 'api', 'catalog', 'projects', 'admin', 'index', '404'].includes(slug)) fail(422, 'INVALID_SLUG', 'Slug gồm chữ thường, số, dấu gạch ngang; tối đa 64 ký tự và không trùng đường dẫn hệ thống.');
   return slug;
 }
 export function validatePath(path) {

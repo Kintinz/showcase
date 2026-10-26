@@ -1,5 +1,18 @@
 # Tiến độ thực thi
 
+## Cập nhật: bản chỉ dùng GitHub Pages
+
+Người dùng đã xác nhận không dùng Cloudflare/server/hosting riêng. Nhánh `feat/github-pages-only` chuyển trang gốc Pages thành ứng dụng quản lý, dùng PAT cá nhân trong bộ nhớ tab để gọi GitHub API. Không cần GitHub App, Worker, callback hoặc server secrets cho bản hiện tại. Các mục phía dưới ghi nhận lịch sử triển khai bản Worker cũ và không còn là hướng dẫn cấu hình đang áp dụng.
+
+- Admin và viewer là file tĩnh; source upload chỉ xuất thành package JSON base64 trong artifact.
+- HTML upload chạy trong iframe sandbox không same-origin, top navigation hoặc popup; link project mở viewer, không mở raw source trên origin quản trị.
+- Browser test local với transport GitHub giả lập đã xác nhận: kết nối token test, lọc danh sách cá nhân, CSS/ảnh/JS tương tác, chặn parent access, điều hướng HTML nội bộ.
+- Reviewer độc lập phát hiện đường dẫn thư mục root và fragment/SVG href; đã sửa resolver và bổ sung kiểm chứng. Không có finding nhỏ được hoãn.
+- Các kiểm thử Worker cũ vẫn giữ để tránh làm mất dữ liệu/đối chiếu; Worker và fixture không được bundle vào Pages.
+- Chưa dùng PAT thật của người dùng; kết quả giả lập không thay thế nghiệm thu quyền GitHub, branch protection và deployment thật.
+
+---
+
 Ngày 26/10/2026, repo GitHub Kintinz/showcase ban đầu trống. Checkout local trên branch chưa có commit `feat/ui-showcase`. Không stage/commit/push, không cài dependency hoặc thay đổi cấu hình dịch vụ.
 
 ## Quyết định triển khai

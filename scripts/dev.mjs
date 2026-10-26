@@ -2,7 +2,9 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
-import app from '../worker/src/index.ts';
+import { mkdir } from 'node:fs/promises';
+import { buildShowcase } from './build-showcase.ts';
+import { execFileSync } from 'node:child_process';
 const root = path.resolve(import.meta.dirname, '..');
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
 export function assets(directory) {
@@ -28,6 +30,13 @@ export function serve(handler, port) {
   server.listen(port, '127.0.0.1', () => console.log(`Local UI: http://localhost:${port}`)); return server;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
-  const env = { ...process.env, ASSETS: assets(path.join(root, 'admin')) };
-  serve(req => app.fetch(req, env), 4173);
+  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  await mkdir(path.join(root, '.build'), { recursive: true });
+  const out = path.join(root, '.build', `dev-${Date.now()}`); await buildShowcase(root, out, sha);
+  const site = assets(out);
+  serve(request => {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/showcase/')) return new Response(null, { status: 302, headers: { Location: '/showcase/' } });
+    url.pathname = url.pathname.slice('/showcase'.length); return site.fetch(new Request(url, request));
+  }, 4173);
 }

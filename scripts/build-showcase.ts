@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile, lstat, copyFile, appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateSlug, validatePath } from '../worker/src/package.ts';
+import { validateSlug, validatePath, LIMITS } from '../worker/src/package.ts';
 async function copyTree(source, destination, validate = false, prefix = '') {
   const stat = await lstat(source); if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error('Source directory must be a real directory.');
   await mkdir(destination, { recursive: true });
@@ -14,22 +14,51 @@ async function copyTree(source, destination, validate = false, prefix = '') {
   }
 }
 async function entriesOrEmpty(dir) { try { return await readdir(dir, { withFileTypes: true }); } catch (e) { if (e.code === 'ENOENT') return []; throw e; } }
+async function packageProject(source) {
+  const files = Object.create(null); let total = 0, count = 0;
+  async function visit(directory, prefix = '') {
+    const stat = await lstat(directory); if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error('Project directory must not be a symlink.');
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const relative = prefix + entry.name;
+      if (entry.isSymbolicLink()) throw Error('Project symlinks are forbidden.');
+      if (entry.isDirectory()) await visit(path.join(directory, entry.name), relative + '/');
+      else if (entry.isFile()) {
+        validatePath(relative); const stat = await lstat(path.join(directory, entry.name));
+        if (stat.size > LIMITS.file || (total += stat.size) > LIMITS.expanded || ++count > LIMITS.count) throw Error('Project exceeds upload limits.');
+        files[relative] = (await readFile(path.join(directory, entry.name))).toString('base64');
+      } else throw Error('Unsupported project file.');
+    }
+  }
+  await visit(source); if (!Object.hasOwn(files, 'index.html')) throw Error('Project requires index.html.'); return files;
+}
+function browserModule(source) { return source.replace(/(['"])(\.\.?\/[^'"]+)\.ts\1/g, (_, quote, name) => `${quote}${name}.js${quote}`); }
 export async function buildShowcase(root, out, sha) {
   if (!/^[a-f0-9]{40}$/.test(sha)) throw Error('A 40-character commit SHA is required.');
   await mkdir(out, { recursive: false });
+  await copyTree(path.join(root, 'admin'), out);
+  await mkdir(path.join(out, 'assets/core'), { recursive: true });
+  for (const name of ['errors', 'package', 'permissions', 'publish', 'delete', 'status']) {
+    await writeFile(path.join(out, 'assets/core', name + '.js'), browserModule(await readFile(path.join(root, 'worker/src', name + '.ts'), 'utf8')));
+  }
+  const clientPath = path.join(out, 'assets/client.js');
+  await writeFile(clientPath, browserModule((await readFile(clientPath, 'utf8')).replaceAll('../../worker/src/', './core/')));
+  await mkdir(path.join(out, 'previews'));
   const projects = Object.create(null);
   for (const entry of await entriesOrEmpty(path.join(root, 'catalog'))) {
     if (!entry.isFile() || !/^[a-z0-9-]+\.json$/.test(entry.name)) throw Error('Invalid catalog entry.');
     const meta = JSON.parse(await readFile(path.join(root, 'catalog', entry.name), 'utf8')), slug = validateSlug(meta.slug);
     if (entry.name !== `${slug}.json`) throw Error('Catalog slug mismatch.');
     if (typeof meta.uploadId !== 'string' || !/^[a-f0-9-]{36}$/.test(meta.uploadId)) throw Error('Missing upload identity.');
-    await lstat(path.join(root, 'projects', slug, 'index.html'));
-    await copyTree(path.join(root, 'projects', slug), path.join(out, slug), true); projects[slug] = meta.uploadId;
+    const files = await packageProject(path.join(root, 'projects', slug));
+    await writeFile(path.join(out, 'previews', `${slug}.json`), JSON.stringify({ version: 1, slug, uploadId: meta.uploadId, files }));
+    // A direct project URL opens our trusted viewer, never raw uploaded HTML on this origin.
+    await mkdir(path.join(out, slug));
+    await writeFile(path.join(out, slug, 'index.html'), `<!doctype html><html lang="vi"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../viewer/?slug=${slug}"><title>Showcase</title><a href="../viewer/?slug=${slug}">Mở giao diện</a></html>`);
+    projects[slug] = meta.uploadId;
   }
   await copyTree(path.join(root, 'viewer'), path.join(out, 'viewer'));
   await writeFile(path.join(out, 'showcase-status.json'), JSON.stringify({ sha, projects }));
   await writeFile(path.join(out, '.nojekyll'), '');
-  await writeFile(path.join(out, 'index.html'), '<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>UI Showcase</title><body><h1>UI Showcase</h1><p>Mở đường dẫn giao diện đã được chia sẻ để xem bản thiết kế.</p></body></html>');
   return out;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

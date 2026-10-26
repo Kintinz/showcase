@@ -2,7 +2,8 @@ import { validateSlug } from './package.ts';
 import { fail } from './errors.ts';
 export function previewBase(env) {
   let base; try { base = new URL(env.PREVIEW_BASE_URL); } catch { fail(503, 'NOT_CONFIGURED', 'Chưa cấu hình PREVIEW_BASE_URL.'); }
-  if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash) fail(503, 'NOT_CONFIGURED', 'Preview URL cần là URL HTTPS.');
+  const local = base.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
+  if ((base.protocol !== 'https:' && !local) || base.username || base.password || base.search || base.hash) fail(503, 'NOT_CONFIGURED', 'Preview URL cần là URL HTTPS (hoặc localhost khi test).');
   if (!base.pathname.endsWith('/')) base.pathname += '/'; return base;
 }
 export async function projectStatus(github, user, sha, value, env, fetcher = fetch) {
