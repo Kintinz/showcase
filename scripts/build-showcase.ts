@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile, lstat, copyFile, appendFile } from
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateSlug, validatePath, LIMITS } from '../worker/src/package.ts';
+import { previewCache, artifactBytes } from './preview-cache.mjs';
 async function copyTree(source, destination, validate = false, prefix = '') {
   const stat = await lstat(source); if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error('Source directory must be a real directory.');
   await mkdir(destination, { recursive: true });
@@ -32,8 +33,11 @@ async function packageProject(source) {
   await visit(source); if (!Object.hasOwn(files, 'index.html')) throw Error('Project requires index.html.'); return files;
 }
 function browserModule(source) { return source.replace(/(['"])(\.\.?\/[^'"]+)\.ts\1/g, (_, quote, name) => `${quote}${name}.js${quote}`); }
-export async function buildShowcase(root, out, sha) {
+export async function buildShowcase(root, out, sha, options = {}) {
   if (!/^[a-f0-9]{40}$/.test(sha)) throw Error('A 40-character commit SHA is required.');
+  root = path.resolve(root); out = path.resolve(out);
+  const started = performance.now(), stats = { projects: 0, cacheHits: 0, packaged: 0, cacheInvalid: 0, cacheWritesFailed: 0 };
+  const cache = await previewCache(root, out, sha, options.cacheDir, stats);
   await mkdir(out, { recursive: false });
   await copyTree(path.join(root, 'admin'), out);
   await mkdir(path.join(out, 'assets/core'), { recursive: true });
@@ -49,7 +53,10 @@ export async function buildShowcase(root, out, sha) {
     const meta = JSON.parse(await readFile(path.join(root, 'catalog', entry.name), 'utf8')), slug = validateSlug(meta.slug);
     if (entry.name !== `${slug}.json`) throw Error('Catalog slug mismatch.');
     if (typeof meta.uploadId !== 'string' || !/^[a-f0-9-]{36}$/.test(meta.uploadId)) throw Error('Missing upload identity.');
-    const files = await packageProject(path.join(root, 'projects', slug));
+    stats.projects++;
+    let files = await cache?.load(slug);
+    if (files) stats.cacheHits++;
+    else { files = await packageProject(path.join(root, 'projects', slug)); stats.packaged++; await cache?.save(slug, files); }
     await writeFile(path.join(out, 'previews', `${slug}.json`), JSON.stringify({ version: 1, slug, uploadId: meta.uploadId, files }));
     // A direct project URL opens our trusted viewer, never raw uploaded HTML on this origin.
     await mkdir(path.join(out, slug));
@@ -59,13 +66,18 @@ export async function buildShowcase(root, out, sha) {
   await copyTree(path.join(root, 'viewer'), path.join(out, 'viewer'));
   await writeFile(path.join(out, 'showcase-status.json'), JSON.stringify({ sha, projects }));
   await writeFile(path.join(out, '.nojekyll'), '');
+  stats.artifactBytes = await artifactBytes(out); stats.elapsedMs = Math.round(performance.now() - started);
+  if (options.stats) Object.assign(options.stats, stats);
   return out;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const root = process.cwd(), sha = process.env.GITHUB_SHA || process.argv[2];
+  const root = process.cwd(), sha = process.env.GITHUB_SHA || process.argv.slice(2).find(value => /^[a-f0-9]{40}$/.test(value));
   await mkdir(path.join(root, '.build'), { recursive: true });
   const out = path.join(root, '.build', `pages-${Date.now()}`);
-  await buildShowcase(root, out, sha);
-  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `path=${out}\n`);
+  const stats = {};
+  await buildShowcase(root, out, sha, { cacheDir: process.argv.includes('--cache') ? path.join(root, '.build/preview-cache') : undefined, stats });
+  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `path=${out}\ncache-save=${stats.cacheMode === 'git' && stats.packaged > 0}\n`);
   console.log(`Pages artifact: ${out}`);
+  console.log(`Build statistics: ${JSON.stringify(stats)}`);
+  if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `### Showcase build\n\n| Projects | Cache hits | Packaged | Invalid cache | Bytes | Time (ms) | Mode |\n|---:|---:|---:|---:|---:|---:|---|\n| ${stats.projects} | ${stats.cacheHits} | ${stats.packaged} | ${stats.cacheInvalid} | ${stats.artifactBytes} | ${stats.elapsedMs} | ${stats.cacheMode} |\n`);
 }

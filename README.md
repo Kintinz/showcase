@@ -142,3 +142,9 @@ Ghi nhớ kết nối tối đa 30 ngày không kéo dài hạn token GitHub. To
 Cache metadata theo blob SHA trong bộ nhớ của phiên kết nối; xóa khi ngắt kết nối. Danh mục và tạo blob upload chạy tối đa 4 request đồng thời cho mỗi thao tác. Thư viện hiển thị 24 thẻ/trang; tìm kiếm vẫn áp dụng toàn danh mục đã tải. Kiểm tra Pages theo nhóm dùng chung marker/workflow trong từng chu kỳ, giãn nhịp 12 → 20 → 30 giây và tạm ngừng khi tab ẩn.
 
 Số liệu trước/sau, giới hạn còn lại và lệnh đo lại: [Performance P0 + P1](docs/performance-p0-p1.md). Lần tải đầu vẫn đọc toàn cây repo và metadata; build vẫn đóng gói toàn bộ site.
+
+### Cache build Pages (P3)
+
+Dùng `node scripts/build-showcase.ts <commit-sha> --cache` để tái sử dụng gói preview ở checkout Git sạch, không có chuyển đổi file. Source local có thay đổi hoặc cấu hình CRLF/filter sẽ build lại từ source. Artifact luôn đầy đủ và dùng uploadId/SHA hiện tại. PR chạy Check; push main chạy test/build/deploy trong Publish showcase, tránh hai workflow cùng build lại.
+
+Cách cache được kiểm tra, số liệu cold/warm và giới hạn kiểm chứng: [Performance P3](docs/performance-p3.md).

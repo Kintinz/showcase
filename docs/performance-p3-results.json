@@ -1,0 +1,111 @@
+{
+  "environment": "win32, Node 24.18.0, local Git checkout with autocrlf=false; 10 files/project, about 37 KiB/project; no Actions cache transfer, checkout or deployment time included.",
+  "datasets": [
+    {
+      "count": 100,
+      "builds": [
+        {
+          "scenario": "no-cache",
+          "projects": 100,
+          "cacheHits": 0,
+          "packaged": 100,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "disabled",
+          "artifactBytes": 5074976,
+          "elapsedMs": 1648,
+          "artifactDigest": "5564b7c1a064f300680f98280e4768e723705f1b849e1e97859679264c38ed37"
+        },
+        {
+          "scenario": "cold",
+          "projects": 100,
+          "cacheHits": 0,
+          "packaged": 100,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "git",
+          "artifactBytes": 5074976,
+          "elapsedMs": 2190,
+          "artifactDigest": "5564b7c1a064f300680f98280e4768e723705f1b849e1e97859679264c38ed37"
+        },
+        {
+          "scenario": "warm",
+          "projects": 100,
+          "cacheHits": 100,
+          "packaged": 0,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "git",
+          "artifactBytes": 5074976,
+          "elapsedMs": 868,
+          "artifactDigest": "5564b7c1a064f300680f98280e4768e723705f1b849e1e97859679264c38ed37"
+        },
+        {
+          "scenario": "one-change",
+          "projects": 100,
+          "cacheHits": 99,
+          "packaged": 1,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "git",
+          "artifactBytes": 5074968,
+          "elapsedMs": 895,
+          "artifactDigest": "e2fa6b9f97a2484cb6aa0834f869b5454f3a6981e87b17bcf7e516fa8fbb1e7e"
+        }
+      ]
+    },
+    {
+      "count": 1000,
+      "builds": [
+        {
+          "scenario": "no-cache",
+          "projects": 1000,
+          "cacheHits": 0,
+          "packaged": 1000,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "disabled",
+          "artifactBytes": 49943576,
+          "elapsedMs": 14866,
+          "artifactDigest": "2477f3cdf45265d01e4ba4e88542197f3ebd594c1a4333007decd9d578766c24"
+        },
+        {
+          "scenario": "cold",
+          "projects": 1000,
+          "cacheHits": 0,
+          "packaged": 1000,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "git",
+          "artifactBytes": 49943576,
+          "elapsedMs": 17851,
+          "artifactDigest": "2477f3cdf45265d01e4ba4e88542197f3ebd594c1a4333007decd9d578766c24"
+        },
+        {
+          "scenario": "warm",
+          "projects": 1000,
+          "cacheHits": 1000,
+          "packaged": 0,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "git",
+          "artifactBytes": 49943576,
+          "elapsedMs": 5761,
+          "artifactDigest": "2477f3cdf45265d01e4ba4e88542197f3ebd594c1a4333007decd9d578766c24"
+        },
+        {
+          "scenario": "one-change",
+          "projects": 1000,
+          "cacheHits": 999,
+          "packaged": 1,
+          "cacheInvalid": 0,
+          "cacheWritesFailed": 0,
+          "cacheMode": "git",
+          "artifactBytes": 49943568,
+          "elapsedMs": 5177,
+          "artifactDigest": "adba7f7421c3c242568750f9e58e72a29df916e29e4c4b4ed1feac9c5628dfb8"
+        }
+      ]
+    }
+  ]
+}
