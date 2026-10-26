@@ -1,9 +1,24 @@
 import { ShowcaseClient } from './client.js';
+import { SavedConnection, TokenStore } from './connection.js';
+import { config } from './config.js';
 const $ = selector => document.querySelector(selector);
-const client = new ShowcaseClient();
+const tokenStore = new TokenStore({ key: `showcase-token:${config.owner}/${config.repo}:${config.branch}` });
+const client = new SavedConnection(new ShowcaseClient(), tokenStore, () => resetConnection('Token không hợp lệ hoặc đã hết hạn. Vui lòng kết nối lại.'));
 let me = null, projects = [], deleting = null, pending = [], polling = false;
+let connectionVersion = 0, pollTimer = null, restoring = false;
 function notice(text) { $('#notice').textContent = text; $('#notice').hidden = !text; }
 function element(tag, className, text) { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; }
+function showConnect() { if (restoring) return; $('#connect-error').textContent = ''; $('#connect-dialog').showModal(); }
+function resetConnection(message = '') {
+  connectionVersion++; clearTimeout(pollTimer); polling = false;
+  me = null; projects = []; pending = []; deleting = null;
+  $('#welcome').hidden = false; $('#open-upload').disabled = true;
+  $('#upload-dialog').close(); $('#delete-dialog').close();
+  $('#empty h3').textContent = 'Không gian cho ý tưởng đầu tiên';
+  $('#empty p').textContent = 'Kết nối GitHub để xem và quản lý giao diện của bạn.';
+  const button = element('button', 'button small secondary', 'Kết nối GitHub ↗'); button.type = 'button'; button.addEventListener('click', showConnect);
+  $('#account').replaceChildren(button); render(); renderJobs(); notice(message);
+}
 async function copy(text, button) {
   try { await navigator.clipboard.writeText(text); const previous = button.textContent; button.textContent = 'Đã copy ✓'; setTimeout(() => { button.textContent = previous; }, 1800); }
   catch { notice('Không truy cập được clipboard. Bạn có thể mở giao diện và sao chép URL trên trình duyệt.'); }
@@ -31,8 +46,8 @@ function render() {
     card.append(art, body); $('#projects').append(card);
   }
 }
-async function refreshProjects() { projects = await client.catalog(); render(); }
-function savePending() { try { sessionStorage.setItem(`showcase-jobs-${me.user.id}`, JSON.stringify(pending)); } catch { /* Progress remains available until this tab is closed. */ } }
+async function refreshProjects() { const version = connectionVersion, loaded = await client.catalog(); if (!me || version !== connectionVersion) return; projects = loaded; render(); }
+function savePending() { if (!me) return; try { sessionStorage.setItem(`showcase-jobs-${me.user.id}`, JSON.stringify(pending)); } catch { /* Progress remains available until this tab is closed. */ } }
 function renderJobs() {
   $('#jobs').replaceChildren();
   const labels = { saved: 'Đã lưu thay đổi vào GitHub', queued: 'Đang chờ xuất bản', deploying: 'Đang xuất bản', ready: 'Đã hoàn tất', failed: 'Xuất bản chưa hoàn tất' };
@@ -48,16 +63,20 @@ function renderJobs() {
   }
 }
 async function checkJob(job) {
-  try { Object.assign(job, await client.status(job)); if (job.state === 'ready') await refreshProjects(); }
-  catch (error) { job.error = error.message; }
+  const version = connectionVersion;
+  try { const result = await client.status(job); if (version !== connectionVersion) return; Object.assign(job, result); if (job.state === 'ready') await refreshProjects(); }
+  catch (error) { if (version !== connectionVersion) return; job.error = error.message; }
   savePending();
 }
 async function poll() {
   if (polling || !me) return; polling = true;
-  const active = pending.filter(j => !['ready', 'failed'].includes(j.state));
-  for (const job of active) await checkJob(job);
-  renderJobs(); polling = false;
-  if (pending.some(j => !['ready', 'failed'].includes(j.state))) setTimeout(poll, 12000);
+  const version = connectionVersion;
+  try {
+    const active = pending.filter(j => !['ready', 'failed'].includes(j.state));
+    for (const job of active) { if (version !== connectionVersion || !me) break; await checkJob(job); }
+    if (version === connectionVersion) renderJobs();
+  } finally { if (version === connectionVersion) polling = false; }
+  if (me && version === connectionVersion && pending.some(j => !['ready', 'failed'].includes(j.state))) pollTimer = setTimeout(poll, 12000);
 }
 function addJob(result) {
   pending = pending.filter(p => p.slug !== result.slug); pending.unshift(result); savePending(); renderJobs(); poll();
@@ -99,21 +118,35 @@ $('#upload-form').addEventListener('submit', async event => {
 $('#search').addEventListener('input', render);
 async function connected(account) {
   try {
+    connectionVersion++;
     me = account; $('#welcome').hidden = true; $('#open-upload').disabled = !me.canPublish; notice('');
     $('#account').replaceChildren(element('span', 'avatar', me.user.login.slice(0, 1).toUpperCase()), element('span', 'account-name', '@' + me.user.login));
-    const logout = element('button', 'button secondary small', 'Ngắt kết nối'); logout.addEventListener('click', () => { client.disconnect(); me = null; location.reload(); }); $('#account').append(logout);
+    const logout = element('button', 'button secondary small', 'Ngắt kết nối'); logout.addEventListener('click', () => { const cleared = client.disconnect(); $('#remember-token').checked = false; resetConnection(cleared ? '' : 'Trình duyệt chặn truy cập bộ nhớ. Hãy xóa dữ liệu trang nếu bạn đã từng ghi nhớ token trên thiết bị này.'); }); $('#account').append(logout);
     if (!me.canPublish) notice('Tài khoản hiện không có quyền ghi repo. Bạn có thể xem danh sách của mình; chức năng đăng và xóa đang bị khóa.');
     try { const saved = JSON.parse(sessionStorage.getItem(`showcase-jobs-${me.user.id}`) || '[]'); pending = Array.isArray(saved) ? saved.filter(j => /^[a-f0-9]{40}$/.test(j.commitSha) && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(j.slug) && j.slug.length <= 64 && ['publish', 'delete'].includes(j.operation)) : []; } catch { pending = []; }
     await refreshProjects(); renderJobs(); poll();
   } catch (error) { notice(error.message); }
 }
-for (const button of document.querySelectorAll('[data-connect]')) button.addEventListener('click', () => { $('#connect-error').textContent = ''; $('#connect-dialog').showModal(); });
+for (const button of document.querySelectorAll('[data-connect]')) button.addEventListener('click', showConnect);
 $('#connect-form').addEventListener('submit', async event => {
   event.preventDefault(); const input = $('#github-token'); let token = input.value.trim(); input.value = '';
   $('#connect-button').disabled = true; $('#connect-error').textContent = '';
-  try { const account = await client.connect(token); token = ''; $('#connect-dialog').close(); await connected(account); }
+  try {
+    const result = await client.connect(token, $('#remember-token').checked); token = ''; $('#connect-dialog').close(); await connected(result.account);
+    if (!result.stored && me) notice([$('#notice').textContent, 'Trình duyệt không cho phép lưu kết nối. Bạn vẫn có thể dùng trong trang hiện tại; tải lại trang sẽ cần nhập token.'].filter(Boolean).join(' '));
+  }
   catch (error) { $('#connect-error').textContent = error.message; }
   finally { token = ''; $('#connect-button').disabled = false; }
 });
 $('#connect-dialog').addEventListener('close', () => { $('#github-token').value = ''; });
 render();
+async function restoreConnection() {
+  restoring = true; for (const button of document.querySelectorAll('[data-connect]')) button.disabled = true;
+  try {
+    const result = await client.restore();
+    if (result) { $('#remember-token').checked = result.remember; await connected(result.account); }
+  } catch (error) {
+    notice(error.status === 401 ? 'Token đã hết hạn hoặc bị thu hồi. Vui lòng kết nối lại.' : `Chưa khôi phục được kết nối: ${error.message} Token đã lưu được giữ lại; bạn có thể tải lại trang để thử lại.`);
+  } finally { restoring = false; for (const button of document.querySelectorAll('[data-connect]')) button.disabled = false; }
+}
+restoreConnection();

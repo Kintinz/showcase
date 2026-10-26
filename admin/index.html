@@ -54,7 +54,8 @@
       </ol>
     </details>
     <label class="field">Token GitHub cá nhân<input id="github-token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Nhập token GitHub của bạn" aria-describedby="token-note" required></label>
-    <p id="token-note" class="field-hint">Token chỉ hiển thị một lần trên GitHub. Không chia sẻ token; Showcase chỉ giữ token trong bộ nhớ tab. Tải lại trang sẽ cần kết nối lại.</p>
+    <p class="field-hint"><label><input id="remember-token" name="remember" type="checkbox" aria-describedby="token-note"> Ghi nhớ trên thiết bị này trong 7 ngày</label></p>
+    <p id="token-note" class="field-hint">Mặc định, tải lại trang trong cùng tab không cần nhập token. Tích ghi nhớ để kết nối lại khi mở website lần sau trên thiết bị này. Chỉ dùng tùy chọn này trên máy cá nhân: JavaScript cùng origin có thể đọc token đã lưu. Nhấn Ngắt kết nối để xóa token khỏi trình duyệt.</p>
     <p id="connect-error" class="error" role="alert"></p>
     <div class="dialog-actions"><button type="button" class="button secondary" data-close>Hủy</button><button id="connect-button" class="button primary" type="submit">Kết nối</button></div>
   </form></dialog>

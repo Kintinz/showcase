@@ -48,6 +48,21 @@ test('browser native fetch receives its required global receiver', async () => {
   const github = new PagesGitHub(config, 'test-token', browserFetch);
   assert.deepEqual(await github.identity(), { id: 42, login: 'alice' });
 });
+test('identity response from an old connection cannot disconnect a newly connected account', async () => {
+  let delayOld = false, finishOld;
+  const fetcher = async (url, options) => {
+    if (new URL(url).pathname === '/user') {
+      const old = options.headers.Authorization === 'Bearer old-token';
+      if (old && delayOld) return new Promise(resolve => { finishOld = () => resolve(Response.json({ id: 42, login: 'old-user' })); });
+      return Response.json(old ? { id: 42, login: 'old-user' } : { id: 43, login: 'new-user' });
+    }
+    return Response.json({ permissions: { push: true } });
+  };
+  const client = new ShowcaseClient(config, fetcher); await client.connect('old-token');
+  delayOld = true; const pending = client.currentUser(); await client.connect('new-token'); finishOld();
+  await assert.rejects(() => pending, e => e.status === 409);
+  assert.equal((await client.currentUser()).id, 43);
+});
 test('Pages-only client publishes source, filters owner, checks deployment and deletes own files', async () => {
   const fixture = repositoryFixture({ 'catalog/other.json': JSON.stringify({ ownerId: 7, slug: 'other', name: 'Other' }), 'projects/other/index.html': 'keep me' });
   const client = new ShowcaseClient(config, fixture.fetcher, async () => Response.json(fixture.marker()));

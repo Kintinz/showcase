@@ -87,8 +87,9 @@ export class ShowcaseClient {
   }
   async currentUser() {
     if (!this.#github || !this.#user) fail(401, 'DISCONNECTED', 'Kết nối GitHub để tiếp tục.');
-    const identity = await this.#github.identity();
-    if (identity.id !== this.#user.id) { this.disconnect(); fail(401, 'IDENTITY_CHANGED', 'Tài khoản đã thay đổi. Hãy kết nối lại.'); }
+    const github = this.#github, user = this.#user, identity = await github.identity();
+    if (github !== this.#github) fail(409, 'CONNECTION_CHANGED', 'Kết nối đã thay đổi. Thao tác cũ được dừng.');
+    if (identity.id !== user.id) { this.disconnect(); fail(401, 'IDENTITY_CHANGED', 'Tài khoản đã thay đổi. Hãy kết nối lại.'); }
     this.#user = identity; return identity;
   }
   previewUrl(slug) { return new URL(`viewer/?slug=${encodeURIComponent(validateSlug(slug))}`, this.config.previewBase).href; }
