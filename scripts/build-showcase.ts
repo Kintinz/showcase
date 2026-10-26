@@ -37,7 +37,7 @@ export async function buildShowcase(root, out, sha) {
   await mkdir(out, { recursive: false });
   await copyTree(path.join(root, 'admin'), out);
   await mkdir(path.join(out, 'assets/core'), { recursive: true });
-  for (const name of ['errors', 'package', 'permissions', 'publish', 'delete', 'status']) {
+  for (const name of ['errors', 'package', 'permissions', 'parallel', 'publish', 'delete', 'status']) {
     await writeFile(path.join(out, 'assets/core', name + '.js'), browserModule(await readFile(path.join(root, 'worker/src', name + '.ts'), 'utf8')));
   }
   const clientPath = path.join(out, 'assets/client.js');

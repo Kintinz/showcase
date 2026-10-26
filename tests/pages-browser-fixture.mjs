@@ -16,6 +16,13 @@ const seed = {
   'catalog/other-user.json': JSON.stringify({ ownerId: 7, name: 'Không được hiển thị', slug: 'other-user', uploadId: '22222222-2222-4222-8222-222222222222' }),
   'projects/other-user/index.html': '<h1>Other user</h1>',
 };
+if (process.argv.includes('--performance')) {
+  for (let i = 1; i <= 55; i++) {
+    const slug = `performance-${String(i).padStart(2, '0')}`;
+    seed[`catalog/${slug}.json`] = JSON.stringify({ ownerId: 42, name: `Giao diện số ${i}`, slug, uploadId: '33333333-3333-4333-8333-333333333333', createdAt: `2026-10-25T${String(i % 24).padStart(2, '0')}:00:00Z` });
+    seed[`projects/${slug}/index.html`] = '<!doctype html><title>Performance fixture</title><h1>Disposable browser fixture</h1>';
+  }
+}
 const fixture = repositoryFixture(seed);
 await mkdir('.build', { recursive: true }); const out = path.resolve('.build', `pages-browser-${Date.now()}`);
 await buildShowcase(process.cwd(), out, 'a'.repeat(40));

@@ -20,6 +20,7 @@ function fakeClient() {
     async publish() { if (this.error) throw this.error; return { state: 'saved' }; },
     async delete() { if (this.error) throw this.error; return { state: 'saved' }; },
     async status() { if (this.error) throw this.error; return { state: 'ready' }; },
+    async statuses() { if (this.error) throw this.error; return []; },
   };
 }
 const error = status => Object.assign(new Error('Service error'), { status });
@@ -73,7 +74,7 @@ test('401 on restore clears saved token and memory, while network and 403 errors
   }
 });
 test('401 during any connected operation clears storage; disconnect clears both remember modes', async () => {
-  for (const method of ['catalog', 'publish', 'delete', 'status']) {
+  for (const method of ['catalog', 'publish', 'delete', 'status', 'statuses']) {
     const { store } = fixture(), client = fakeClient(); let invalidations = 0;
     const connection = new SavedConnection(client, store, () => invalidations++);
     await connection.connect('accepted-token', true); client.error = error(401);

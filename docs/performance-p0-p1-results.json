@@ -1,0 +1,121 @@
+{
+  "baseline": {
+    "measuredAt": "2026-10-26T15:53:25.168Z",
+    "environment": "Local in-memory GitHub HTTP fixture; no network delay; small HTML per project; times are not production estimates.",
+    "rows": [
+      {
+        "totalProjects": 100,
+        "ownedProjects": 10,
+        "coldRequests": 104,
+        "warmRequests": 104,
+        "coldPeak": 1,
+        "coldMs": 40,
+        "warmMs": 14,
+        "buildMs": 514,
+        "sourceBytes": 7100,
+        "artifactBytes": 129942
+      },
+      {
+        "totalProjects": 1000,
+        "ownedProjects": 100,
+        "coldRequests": 1004,
+        "warmRequests": 1004,
+        "coldPeak": 1,
+        "coldMs": 158,
+        "warmMs": 93,
+        "buildMs": 5597,
+        "sourceBytes": 71000,
+        "artifactBytes": 553842
+      },
+      {
+        "totalProjects": 5000,
+        "ownedProjects": 500,
+        "coldRequests": 5004,
+        "warmRequests": 5004,
+        "coldPeak": 1,
+        "coldMs": 1061,
+        "warmMs": 880,
+        "buildMs": 24915,
+        "sourceBytes": 355000,
+        "artifactBytes": 2453842
+      }
+    ]
+  },
+  "optimized": {
+    "measuredAt": "2026-10-26T15:58:29.116Z",
+    "environment": "Local in-memory GitHub HTTP fixture; no network delay; small HTML per project; times are not production estimates.",
+    "rows": [
+      {
+        "totalProjects": 100,
+        "ownedProjects": 10,
+        "coldRequests": 104,
+        "warmRequests": 4,
+        "coldPeak": 4,
+        "coldMs": 52,
+        "warmMs": 3,
+        "buildMs": 661,
+        "sourceBytes": 7100,
+        "artifactBytes": 136642
+      },
+      {
+        "totalProjects": 1000,
+        "ownedProjects": 100,
+        "coldRequests": 1004,
+        "warmRequests": 4,
+        "coldPeak": 4,
+        "coldMs": 177,
+        "warmMs": 14,
+        "buildMs": 5862,
+        "sourceBytes": 71000,
+        "artifactBytes": 560542
+      },
+      {
+        "totalProjects": 5000,
+        "ownedProjects": 500,
+        "coldRequests": 5004,
+        "warmRequests": 4,
+        "coldPeak": 4,
+        "coldMs": 731,
+        "warmMs": 83,
+        "buildMs": 28430,
+        "sourceBytes": 355000,
+        "artifactBytes": 2460542
+      }
+    ]
+  },
+  "operations": {
+    "environment": "Disposable local fixture. Blob stage has artificial 5 ms delay per request, polling has no network delay. Not production timings.",
+    "upload": [
+      {
+        "workers": 1,
+        "requests": 20,
+        "peak": 1,
+        "elapsedMs": 334
+      },
+      {
+        "workers": 4,
+        "requests": 20,
+        "peak": 4,
+        "elapsedMs": 78
+      }
+    ],
+    "polling": [
+      {
+        "batch": false,
+        "jobs": 20,
+        "githubRequests": 60,
+        "markerRequests": 20,
+        "workflowRequests": 20,
+        "elapsedMs": 9
+      },
+      {
+        "batch": true,
+        "jobs": 20,
+        "githubRequests": 22,
+        "markerRequests": 1,
+        "workflowRequests": 1,
+        "elapsedMs": 3
+      }
+    ]
+  }
+}

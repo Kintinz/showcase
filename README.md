@@ -136,3 +136,9 @@ Fixture trình duyệt tại `http://localhost:4175/showcase/`, chỉ nhập tok
 Sau khi lưu source vào GitHub, trang hiển thị trạng thái triển khai và thời gian đã chờ. Chỉ ghi mốc “Đã lên Pages” khi kiểm tra marker xác nhận đúng lần upload; đây là thời điểm trình duyệt xác nhận, không phải timestamp nội bộ của GitHub. Tiến trình và mốc này dùng sessionStorage hiện có, giữ khi tải lại cùng tab; không phải lịch sử triển khai lâu dài và không tự bổ sung cho giao diện cũ.
 
 Ghi nhớ kết nối tối đa 30 ngày không kéo dài hạn token GitHub. Token hết hạn hoặc bị thu hồi sớm sẽ bị xóa khi GitHub trả HTTP 401. Bản ghi cũ 7 ngày giữ nguyên hạn ban đầu; kết nối lại và chọn ghi nhớ để áp dụng 30 ngày.
+
+### Hiệu năng danh mục lớn
+
+Cache metadata theo blob SHA trong bộ nhớ của phiên kết nối; xóa khi ngắt kết nối. Danh mục và tạo blob upload chạy tối đa 4 request đồng thời cho mỗi thao tác. Thư viện hiển thị 24 thẻ/trang; tìm kiếm vẫn áp dụng toàn danh mục đã tải. Kiểm tra Pages theo nhóm dùng chung marker/workflow trong từng chu kỳ, giãn nhịp 12 → 20 → 30 giây và tạm ngừng khi tab ẩn.
+
+Số liệu trước/sau, giới hạn còn lại và lệnh đo lại: [Performance P0 + P1](docs/performance-p0-p1.md). Lần tải đầu vẫn đọc toàn cây repo và metadata; build vẫn đóng gói toàn bộ site.

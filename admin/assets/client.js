@@ -4,6 +4,7 @@ import { deleteProject } from '../../worker/src/delete.ts';
 import { unpackUpload, validateSlug } from '../../worker/src/package.ts';
 import { projectStatus } from '../../worker/src/status.ts';
 import { fail, HttpError } from '../../worker/src/errors.ts';
+import { mapLimit } from '../../worker/src/parallel.ts';
 
 function encode(bytes) {
   let text = ''; for (let i = 0; i < bytes.length; i += 8192) text += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(text);
@@ -12,12 +13,19 @@ function decode(text) { return Uint8Array.from(atob(text.replace(/\s/g, '')), c 
 
 export class PagesGitHub {
   #token;
+  #metadata = new Map();
+  #metadataBytes = 0;
   constructor(config, token, fetcher = fetch) {
     if (!token?.trim()) fail(401, 'MISSING_TOKEN', 'Nhập token GitHub cá nhân để kết nối.');
     this.#token = token.trim(); this.config = config; this.fetcher = fetcher.bind(globalThis);
     this.root = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}`;
   }
-  clear() { this.#token = ''; }
+  clear() { this.#token = ''; this.#metadata.clear(); this.#metadataBytes = 0; }
+  #forgetMetadata(sha) { this.#metadataBytes -= this.#metadata.get(sha)?.bytes || 0; this.#metadata.delete(sha); }
+  retainMetadata(entries) {
+    const shas = new Set(entries.map(entry => entry.sha));
+    for (const sha of this.#metadata.keys()) if (!shas.has(sha)) this.#forgetMetadata(sha);
+  }
   async request(route, options = {}) {
     if (!/^\/(?!\/)/.test(route) || /[\\\x00-\x20]/.test(route)) fail(422, 'INVALID_GITHUB_PATH', 'Chỉ được gửi yêu cầu tới GitHub API.');
     if (!this.#token) fail(401, 'DISCONNECTED', 'Vui lòng kết nối lại GitHub.');
@@ -53,13 +61,21 @@ export class PagesGitHub {
     const ref = await this.request(`${this.root}/git/ref/heads/${this.config.branch.split('/').map(encodeURIComponent).join('/')}`);
     const commit = await this.getCommit(ref.object.sha), tree = await this.request(`${this.root}/git/trees/${commit.tree.sha}?recursive=1`);
     if (tree.truncated) fail(503, 'REPO_TOO_LARGE', 'Repo quá lớn để tải đầy đủ danh mục.');
-    return { sha: ref.object.sha, tree: commit.tree.sha, entries: tree.tree };
+    return { sha: ref.object.sha, tree: commit.tree.sha, entries: tree.tree, byPath: new Map(tree.tree.map(entry => [entry.path, entry])) };
   }
   async getCommit(sha) { if (!/^[a-f0-9]{40}$/.test(sha)) fail(422, 'INVALID_COMMIT', 'Commit không hợp lệ.'); return this.request(`${this.root}/git/commits/${sha}`); }
   async readJson(path, snapshot) {
-    const entry = snapshot.entries.find(e => e.path === path && e.type === 'blob'); if (!entry) return undefined;
+    const entry = snapshot.byPath ? snapshot.byPath.get(path) : snapshot.entries.find(e => e.path === path); if (!entry || entry.type !== 'blob') return undefined;
+    if (this.#metadata.has(entry.sha)) return structuredClone(this.#metadata.get(entry.sha).value);
     const blob = await this.request(`${this.root}/git/blobs/${entry.sha}`);
-    try { return JSON.parse(new TextDecoder().decode(decode(blob.content))); } catch { fail(422, 'INVALID_METADATA', 'Metadata giao diện không hợp lệ.'); }
+    let metadata, bytes;
+    try { bytes = decode(blob.content); metadata = JSON.parse(new TextDecoder().decode(bytes)); } catch { fail(422, 'INVALID_METADATA', 'Metadata giao diện không hợp lệ.'); }
+    if (this.#token && bytes.byteLength <= 64 * 1024 && /^catalog\/[a-z0-9-]+\.json$/.test(path)) {
+      this.#forgetMetadata(entry.sha);
+      while (this.#metadata.size >= 6000 || this.#metadataBytes + bytes.byteLength > 8 * 1024 * 1024) this.#forgetMetadata(this.#metadata.keys().next().value);
+      this.#metadata.set(entry.sha, { value: metadata, bytes: bytes.byteLength }); this.#metadataBytes += bytes.byteLength;
+    }
+    return structuredClone(metadata);
   }
   async blob(bytes) { return (await this.request(`${this.root}/git/blobs`, { method: 'POST', body: JSON.stringify({ content: encode(bytes), encoding: 'base64' }) })).sha; }
   async commit(snapshot, entries, message) {
@@ -94,15 +110,18 @@ export class ShowcaseClient {
   }
   previewUrl(slug) { return new URL(`viewer/?slug=${encodeURIComponent(validateSlug(slug))}`, this.config.previewBase).href; }
   async catalog() {
-    const user = await this.currentUser(), snapshot = await this.#github.snapshot(), projects = [];
-    for (const entry of snapshot.entries.filter(e => e.type === 'blob' && /^catalog\/[a-z0-9-]+\.json$/.test(e.path))) {
-      const metadata = await this.#github.readJson(entry.path, snapshot);
-      if (metadata?.ownerId !== user.id) continue;
+    const user = await this.currentUser(), github = this.#github, snapshot = await github.snapshot();
+    const entries = snapshot.entries.filter(e => e.type === 'blob' && /^catalog\/[a-z0-9-]+\.json$/.test(e.path));
+    github.retainMetadata(entries);
+    const projects = await mapLimit(entries, 4, async entry => {
+      const metadata = await github.readJson(entry.path, snapshot);
+      if (metadata?.ownerId !== user.id) return null;
       const slug = validateSlug(metadata.slug);
       if (entry.path !== `catalog/${slug}.json` || typeof metadata.name !== 'string') fail(422, 'INVALID_METADATA', 'Metadata giao diện không hợp lệ.');
-      projects.push({ ...metadata, previewUrl: this.previewUrl(slug) });
-    }
-    return projects.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      return { ...metadata, previewUrl: this.previewUrl(slug) };
+    });
+    if (github !== this.#github) fail(409, 'CONNECTION_CHANGED', 'Kết nối đã thay đổi. Thao tác cũ được dừng.');
+    return projects.filter(Boolean).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   }
   async publish({ name, slug, file }) {
     const user = await this.currentUser();
@@ -115,8 +134,35 @@ export class ShowcaseClient {
     return { ...result, previewUrl: this.previewUrl(result.slug) };
   }
   async status(job) {
-    const user = await this.currentUser();
-    const result = await projectStatus(this.#github, user, job.commitSha, job.slug, { PREVIEW_BASE_URL: this.config.previewBase }, this.publicFetch);
-    return { ...result, previewUrl: this.previewUrl(result.slug) };
+    const [outcome] = await this.statuses([job]);
+    if (outcome.error) throw outcome.error;
+    return outcome.result;
+  }
+  async statuses(jobs) {
+    if (!jobs.length) return [];
+    const user = await this.currentUser(), github = this.#github, cache = new Map(); let authenticationError;
+    const memo = (key, operation) => {
+      if (!cache.has(key)) cache.set(key, Promise.resolve().then(operation).catch(error => { if (error.status === 401) authenticationError = error; throw error; }));
+      return cache.get(key);
+    };
+    const shared = {
+      getCommit: sha => memo(`commit:${sha}`, () => github.getCommit(sha)),
+      compare: (base, head) => memo(`compare:${base}:${head}`, () => github.compare(base, head)),
+      runs: () => memo('runs', () => github.runs()),
+    };
+    const publicFetch = this.publicFetch.bind(globalThis);
+    const markerFetch = async (...args) => {
+      const response = await memo('marker', () => publicFetch(...args));
+      return { ok: response.ok, json: () => memo('marker-json', () => response.json()) };
+    };
+    const results = await mapLimit(jobs, 4, async job => {
+      try {
+        const result = await projectStatus(shared, user, job.commitSha, job.slug, { PREVIEW_BASE_URL: this.config.previewBase }, markerFetch);
+        return { job, result: { ...result, previewUrl: this.previewUrl(result.slug) } };
+      } catch (error) { if (error.status === 401) throw error; return { job, error }; }
+    });
+    if (github !== this.#github) fail(409, 'CONNECTION_CHANGED', 'Kết nối đã thay đổi. Thao tác cũ được dừng.');
+    if (authenticationError) throw authenticationError;
+    return results;
   }
 }

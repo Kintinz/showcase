@@ -72,4 +72,5 @@ export class SavedConnection {
   publish(input) { return this.#run(() => this.#client.publish(input)); }
   delete(slug) { return this.#run(() => this.#client.delete(slug)); }
   status(job) { return this.#run(() => this.#client.status(job)); }
+  statuses(jobs) { return this.#run(() => this.#client.statuses(jobs)); }
 }
