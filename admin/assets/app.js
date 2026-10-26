@@ -36,10 +36,16 @@ function render() {
   }
   for (const project of visible) {
     const card = element('article', 'project-card'), art = element('div', 'project-art');
-    art.append(element('span', '', '</>'), element('small', '', 'HTML / CSS / JS'));
+    art.setAttribute('aria-hidden', 'true');
+    const browser = element('div', 'project-browser'), bar = element('div', 'project-browser-bar');
+    bar.append(element('span', 'browser-dots', '● ● ●'), element('span', 'browser-filename', `${project.slug}.html`));
+    const initials = project.name.trim().split(/\s+/u).slice(0, 2).map(word => Array.from(word)[0]).join('').toLocaleUpperCase('vi');
+    const canvas = element('div', 'project-canvas');
+    canvas.append(element('span', 'project-initials', initials), element('span', 'project-art-line'), element('span', 'project-art-line short'));
+    browser.append(bar, canvas); art.append(browser, element('small', 'project-format', 'HTML · CSS · JS'));
     const body = element('div', 'project-body'), title = element('h3', '', project.name); title.title = project.name;
     body.append(title, element('p', 'project-path', `/${project.slug}/`));
-    const actions = element('div', 'card-actions'), open = element('a', '', 'Xem giao diện ↗'); open.href = viewerUrl(project.slug); open.target = '_blank'; open.rel = 'noopener noreferrer';
+    const actions = element('div', 'card-actions'), open = element('a', '', 'Mở giao diện ↗'); open.href = viewerUrl(project.slug); open.target = '_blank'; open.rel = 'noopener noreferrer';
     const copyButton = element('button', '', 'Copy link'); copyButton.type = 'button'; copyButton.addEventListener('click', () => copy(project.previewUrl, copyButton));
     const remove = element('button', 'delete', 'Xóa'); remove.type = 'button'; remove.disabled = !me.canPublish; remove.addEventListener('click', () => openDelete(project));
     actions.append(open, copyButton, remove); body.append(actions);
