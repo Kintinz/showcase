@@ -16,4 +16,14 @@ jobs:
       - name: Syntax and tests
         run: node scripts/check.mjs
       - name: Build complete static site
+        id: build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/build-showcase.ts
+      - name: Upload capacity report
+        if: ${{ !cancelled() && steps.build.outputs.report-path != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: showcase-capacity-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.build.outputs.report-path }}
+          if-no-files-found: error

@@ -31,7 +31,16 @@ jobs:
             showcase-preview-${{ runner.os }}-node24-${{ hashFiles('scripts/build-showcase.ts', 'scripts/preview-cache.mjs', 'worker/src/package.ts', 'worker/src/errors.ts') }}-
       - name: Build static showcase
         id: build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/build-showcase.ts --cache
+      - name: Upload capacity report
+        if: ${{ !cancelled() && steps.build.outputs.report-path != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: showcase-capacity-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.build.outputs.report-path }}
+          if-no-files-found: error
       - name: Save preview packages
         if: success() && github.ref == 'refs/heads/main' && steps.build.outputs.cache-save == 'true'
         continue-on-error: true

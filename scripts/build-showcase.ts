@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateSlug, validatePath, LIMITS } from '../worker/src/package.ts';
 import { previewCache, artifactBytes } from './preview-cache.mjs';
+import { createCapacityReport, repositorySize, writeCapacityReport } from './capacity.mjs';
 async function copyTree(source, destination, validate = false, prefix = '') {
   const stat = await lstat(source); if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error('Source directory must be a real directory.');
   await mkdir(destination, { recursive: true });
@@ -47,7 +48,7 @@ export async function buildShowcase(root, out, sha, options = {}) {
   const clientPath = path.join(out, 'assets/client.js');
   await writeFile(clientPath, browserModule((await readFile(clientPath, 'utf8')).replaceAll('../../worker/src/', './core/')));
   await mkdir(path.join(out, 'previews'));
-  const projects = Object.create(null);
+  const projects = Object.create(null), projectSizes = [];
   for (const entry of await entriesOrEmpty(path.join(root, 'catalog'))) {
     if (!entry.isFile() || !/^[a-z0-9-]+\.json$/.test(entry.name)) throw Error('Invalid catalog entry.');
     const meta = JSON.parse(await readFile(path.join(root, 'catalog', entry.name), 'utf8')), slug = validateSlug(meta.slug);
@@ -57,7 +58,9 @@ export async function buildShowcase(root, out, sha, options = {}) {
     let files = await cache?.load(slug);
     if (files) stats.cacheHits++;
     else { files = await packageProject(path.join(root, 'projects', slug)); stats.packaged++; await cache?.save(slug, files); }
-    await writeFile(path.join(out, 'previews', `${slug}.json`), JSON.stringify({ version: 1, slug, uploadId: meta.uploadId, files }));
+    const preview = JSON.stringify({ version: 1, slug, uploadId: meta.uploadId, files });
+    await writeFile(path.join(out, 'previews', `${slug}.json`), preview);
+    projectSizes.push({ slug, fileCount: Object.keys(files).length, sourceBytes: Object.values(files).reduce((total, encoded) => total + Buffer.byteLength(encoded, 'base64'), 0), previewBytes: Buffer.byteLength(preview) });
     // A direct project URL opens our trusted viewer, never raw uploaded HTML on this origin.
     await mkdir(path.join(out, slug));
     await writeFile(path.join(out, slug, 'index.html'), `<!doctype html><html lang="vi"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../viewer/?slug=${slug}"><title>Showcase</title><a href="../viewer/?slug=${slug}">Mở giao diện</a></html>`);
@@ -67,17 +70,19 @@ export async function buildShowcase(root, out, sha, options = {}) {
   await writeFile(path.join(out, 'showcase-status.json'), JSON.stringify({ sha, projects }));
   await writeFile(path.join(out, '.nojekyll'), '');
   stats.artifactBytes = await artifactBytes(out); stats.elapsedMs = Math.round(performance.now() - started);
+  stats.capacity = createCapacityReport(sha, projectSizes, stats.artifactBytes);
   if (options.stats) Object.assign(options.stats, stats);
   return out;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const root = process.cwd(), sha = process.env.GITHUB_SHA || process.argv.slice(2).find(value => /^[a-f0-9]{40}$/.test(value));
   await mkdir(path.join(root, '.build'), { recursive: true });
-  const out = path.join(root, '.build', `pages-${Date.now()}`);
+  const stamp = Date.now(), out = path.join(root, '.build', `pages-${stamp}`);
   const stats = {};
   await buildShowcase(root, out, sha, { cacheDir: process.argv.includes('--cache') ? path.join(root, '.build/preview-cache') : undefined, stats });
-  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `path=${out}\ncache-save=${stats.cacheMode === 'git' && stats.packaged > 0}\n`);
+  stats.capacity.repository = await repositorySize(process.env.GITHUB_REPOSITORY || process.argv.find(value => value.startsWith('--repository='))?.slice(13), process.env.GITHUB_TOKEN);
+  await writeCapacityReport(stats.capacity, { file: path.join(root, '.build', `reports-${stamp}`, 'capacity.json'), output: process.env.GITHUB_OUTPUT, summary: process.env.GITHUB_STEP_SUMMARY, pagesPath: out, cacheSave: stats.cacheMode === 'git' && stats.packaged > 0 });
   console.log(`Pages artifact: ${out}`);
-  console.log(`Build statistics: ${JSON.stringify(stats)}`);
+  console.log(`Build statistics: ${JSON.stringify({ ...stats, capacity: { ...stats.capacity, projects: undefined } })}`);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `### Showcase build\n\n| Projects | Cache hits | Packaged | Invalid cache | Bytes | Time (ms) | Mode |\n|---:|---:|---:|---:|---:|---:|---|\n| ${stats.projects} | ${stats.cacheHits} | ${stats.packaged} | ${stats.cacheInvalid} | ${stats.artifactBytes} | ${stats.elapsedMs} | ${stats.cacheMode} |\n`);
 }

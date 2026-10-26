@@ -10,7 +10,12 @@ test('Pages artifact includes admin and sandbox bundles, never executable upload
   await writeFile(path.join(root, 'catalog/demo.json'), JSON.stringify({ slug: 'demo', ownerId: 42, uploadId: '11111111-1111-4111-8111-111111111111' }));
   await writeFile(path.join(root, 'projects/demo/index.html'), 'hello'); await writeFile(path.join(root, 'projects/demo/assets/a.css'), 'body{}');
   await writeFile(path.join(root, '.dev.vars'), 'SECRET');
-  const out = path.join(root, 'out'); await buildShowcase(root, out, 'a'.repeat(40));
+  const out = path.join(root, 'out'), stats = {}; await buildShowcase(root, out, 'a'.repeat(40), { stats });
+  assert.equal(stats.capacity.projectCount, 1); assert.equal(stats.capacity.fileCount, 2);
+  assert.equal(stats.capacity.sourceBytes, 11);
+  assert.equal(stats.capacity.previewBytes, Buffer.byteLength(await readFile(path.join(out, 'previews/demo.json'))));
+  assert.equal(stats.capacity.artifactBytes, stats.artifactBytes);
+  await assert.rejects(() => access(path.join(out, 'capacity.json')));
   assert.ok((await readFile(path.join(out, 'index.html'), 'utf8')).includes('upload-form'));
   const entry = await readFile(path.join(out, 'demo/index.html'), 'utf8'); assert.ok(!entry.includes('hello')); assert.ok(entry.includes('../viewer/?slug=demo'));
   const bundle = JSON.parse(await readFile(path.join(out, 'previews/demo.json'), 'utf8'));

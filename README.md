@@ -148,3 +148,9 @@ Số liệu trước/sau, giới hạn còn lại và lệnh đo lại: [Perform
 Dùng `node scripts/build-showcase.ts <commit-sha> --cache` để tái sử dụng gói preview ở checkout Git sạch, không có chuyển đổi file. Source local có thay đổi hoặc cấu hình CRLF/filter sẽ build lại từ source. Artifact luôn đầy đủ và dùng uploadId/SHA hiện tại. PR chạy Check; push main chạy test/build/deploy trong Publish showcase, tránh hai workflow cùng build lại.
 
 Cách cache được kiểm tra, số liệu cold/warm và giới hạn kiểm chứng: [Performance P3](docs/performance-p3.md).
+
+### Dung lượng và ngưỡng triển khai (P4)
+
+Mỗi build CLI ghi báo cáo `capacity.json` riêng ngoài site public, gồm source đang dùng, preview, artifact, các dự án lớn nhất và dung lượng repo GitHub tham khảo khi lấy được. Actions Summary hiển thị kết quả; tải JSON ở artifact `showcase-capacity-<run-id>-<attempt>`.
+
+Cảnh báo từ 500/700/850 MB; chặn upload artifact Pages và deploy từ 950 MB (MB thập phân). Source đã được commit vẫn còn trên GitHub; bản Pages cũ được giữ lại khi bị chặn. Giới hạn upload không đổi, không tự xóa hay rewrite Git. Cách xử lý và giới hạn số liệu: [Performance P4](docs/performance-p4.md).

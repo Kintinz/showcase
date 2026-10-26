@@ -46,6 +46,7 @@ async function cacheFiles(dir) {
 test('cold/warm cache produces the same full artifact and only changed projects are repackaged', async () => {
   const f = await fixture(), cold = await f.build(), warm = await f.build(), uncached = await f.build(false);
   assert.equal(cold.stats.packaged, 2); assert.equal(warm.stats.cacheHits, 2); assert.equal(warm.stats.packaged, 0);
+  for (const key of ['projectCount', 'fileCount', 'sourceBytes', 'previewBytes', 'artifactBytes']) assert.equal(warm.stats.capacity[key], uncached.stats.capacity[key]);
   assert.deepEqual(await fileMap(warm.out), await fileMap(uncached.out));
   assert.ok(warm.stats.artifactBytes > 0); assert.ok(warm.stats.elapsedMs >= 0);
   await writeFile(path.join(f.root, 'projects/first/index.html'), '<h1>Changed</h1>');
