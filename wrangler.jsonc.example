@@ -1,0 +1,15 @@
+{
+  "name": "showcase-admin",
+  "main": "worker/src/index.ts",
+  "compatibility_date": "2026-10-26",
+  "assets": { "directory": "./admin", "binding": "ASSETS", "run_worker_first": true },
+  "vars": {
+    "GITHUB_OWNER": "Kintinz",
+    "GITHUB_REPO": "showcase",
+    "GITHUB_BRANCH": "main",
+    "PREVIEW_BASE_URL": "https://kintinz.github.io/showcase/",
+    "GITHUB_APP_ID": "REPLACE_ME",
+    "GITHUB_INSTALLATION_ID": "REPLACE_ME",
+    "GITHUB_CLIENT_ID": "REPLACE_ME"
+  }
+}
