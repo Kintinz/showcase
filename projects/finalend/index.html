@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tồn kho hệ thống</title>
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.default.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --line:#e3e7ef; --text:#1f2937; --muted:#6b7280;
+    --head:#4a68b8; --primary:#1f3c99; --green:#15803d; --zero:#b6bcc8; --foot:#e8edfb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;font-size:14px;color:var(--text);background:var(--bg)}
+  .page{padding:24px 16px}
+  h1{margin:0 0 4px;font-size:22px;font-weight:600}
+  .sub{margin:0 0 16px;color:#4b6cb7;font-size:13px}
+
+  /* ---------- Bộ lọc ---------- */
+  .filter{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;background:var(--card);
+          border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+  .filter label.cap{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .f-store{flex:1 1 320px;min-width:240px}
+  .f-item{flex:1 1 380px;min-width:260px}
+  .chk{display:flex;align-items:center;gap:6px;height:38px;color:var(--muted);font-size:13px;white-space:nowrap}
+  .chk input{width:16px;height:16px;accent-color:var(--primary)}
+  .btn{height:38px;padding:0 16px;border:0;border-radius:6px;background:var(--primary);color:#fff;
+       font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .btn:hover{filter:brightness(1.1)}
+  .btn-excel{background:#fff;color:#1d6f42;border:1px solid #1d6f42}
+  .btn-excel:hover{background:#eef7f1;filter:none}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  /* Chọn loại tồn kho */
+  .combo{height:38px;min-width:190px;padding:0 34px 0 12px;border:1px solid var(--line);border-radius:6px;
+         background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+         font:inherit;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none}
+  .combo:focus{outline:none;border-color:#93a8e6;box-shadow:0 0 0 3px rgba(31,60,153,.12)}
+
+  /* Tom Select */
+  .ts-control{min-height:38px;border-radius:6px;border-color:var(--line);padding:5px 8px;flex-wrap:wrap}
+  .ts-wrapper.multi .ts-control{display:flex;align-items:center;gap:2px}
+  .ts-wrapper.multi .ts-control>div{background:#e8edfb;color:#1f3c99;border-radius:4px;padding:1px 6px;margin:2px 4px 2px 0}
+  .ts-dropdown .option{padding:6px 10px}
+  .ts-dropdown .opt-code{font-weight:600;margin-right:6px}
+  .ts-dropdown .active{background:#eef2fd;color:inherit}
+
+  /* Dòng "Chọn tất cả" trong dropdown */
+  .ts-selall{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);
+             cursor:pointer;font-weight:600;color:var(--primary);background:#f8faff;user-select:none}
+  .ts-selall:hover{background:#eef2fd}
+  .ts-selall input{width:15px;height:15px;margin:0;accent-color:var(--primary);pointer-events:none}
+
+  /* ---------- Bảng ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .table-wrap{overflow:auto;max-height:640px}
+  table{border-collapse:collapse;width:100%;min-width:1500px}
+  thead th{position:sticky;top:0;z-index:2;background:var(--head);color:#fff;font-weight:600;
+           font-size:13px;padding:12px 12px;text-align:left;white-space:nowrap}
+  thead th small{display:block;font-weight:400;font-size:11px;opacity:.8;margin-top:2px}
+  th.num,td.num{text-align:right}
+  th.sep,td.sep{border-right:2px solid #c7d0e6}
+  tbody td{padding:12px;border-bottom:1px solid #eef0f4;vertical-align:middle}
+  tbody tr:hover{background:#f8faff}
+  td.code{white-space:nowrap}
+  td.name{min-width:260px;max-width:320px}
+  td.qty{font-weight:700;color:var(--green)}
+  td.zero{color:var(--zero);font-weight:400}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+
+  /* Dòng tổng */
+  tfoot td{position:sticky;bottom:0;z-index:1;background:var(--foot);font-weight:700;padding:12px;
+           border-top:2px solid #c7d0e6;white-space:nowrap}
+  tfoot td.lbl{color:var(--primary)}
+  tfoot td.zero{color:var(--zero)}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+        padding:12px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  .pager{display:flex;align-items:center;gap:10px}
+  .pager button,.pager select{height:34px;border:1px solid var(--line);background:#fff;border-radius:6px;
+        padding:0 12px;cursor:pointer;font-size:13px}
+  .pager button:disabled{color:#c0c5d0;cursor:default}
+  .pager b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 id="title">Tồn kho hệ thống</h1>
+  <p class="sub">Xem nhanh tồn kho theo mã hàng trên toàn hệ thống hoặc cửa hàng chỉ định</p>
+
+  <div class="filter">
+    <div>
+      <label class="cap">Loại tồn kho</label>
+      <select id="stockType" class="combo">
+        <option value="HT" selected>Tồn kho hệ thống</option>
+        <option value="KT">Tồn kho kế toán</option>
+      </select>
+    </div>
+
+    <div class="f-store">
+      <label class="cap">Chọn nhiều cửa hàng</label>
+      <select id="stores" multiple placeholder="Tất cả cửa hàng của BBE"></select>
+    </div>
+
+    <div class="f-item">
+      <label class="cap">Mã hàng</label>
+      <select id="items" multiple placeholder="Chọn mã hoặc tên hàng..."></select>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="onlyInStock" checked> Lấy mã còn tồn</label>
+    <button class="btn" id="btnSearch">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      Xem tồn kho
+    </button>
+    <button class="btn btn-excel" id="btnExcel" title="Xuất toàn bộ kết quả đang lọc ra file Excel">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Xuất Excel
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+    <div class="foot">
+      <div id="summary"></div>
+      <div class="pager">
+        <button id="prev">« Trước</button>
+        <b id="pageInfo"></b>
+        <button id="next">Sau »</button>
+        <select id="pageSize">
+          <option>20</option><option>50</option><option>100</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= DỮ LIỆU MẪU =================
+   Thay phần này bằng dữ liệu lấy từ API của bạn.
+   - stock   : tồn kho hệ thống (theo thứ tự STORES)
+   - stockKT : tồn kho kế toán  (theo thứ tự STORES)              */
+const COMPANY = 'BBE';
+const STORES  = ['2833','2834','2901','3001','5001','5901','8901','HO'];
+// Tên cửa hàng: thay bằng tên thật lấy từ API / bảng danh mục cửa hàng
+const STORE_NAMES = {
+  '2833':'BBE Cầu Giấy',
+  '2834':'BBE Đống Đa',
+  '2901':'BBE Hà Đông',
+  '3001':'BBE Long Biên',
+  '5001':'BBE Thanh Xuân',
+  '5901':'BBE Hoàng Mai',
+  '8901':'BBE Tây Hồ',
+  'HO'  :'Kho tổng (HO)',
+};
+
+const PRODUCTS = [
+  {code:'111110053',name:'Sua bot Friso Mom huong cam 830g',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:499000,stock:[0,3,0,11,0,11,8,22]},
+  {code:'111110054',name:'Sua bau Morinaga E-Okasan tra sua 800g',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:620000,stock:[0,14,9,23,27,7,15,30]},
+  {code:'111110056',name:'Sua bau Morinaga E-Okasan Tra sua 200g',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:225000,stock:[10,35,26,0,10,0,4,21]},
+  {code:'111110057',name:'Sua bau Morinaga E-Okasan Cafe 200g',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:225000,stock:[23,0,0,19,33,0,0,35]},
+  {code:'111110062',name:'Sua Enfamama A+ Vanilla 400g New',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:335000,stock:[0,24,25,0,0,10,0,28]},
+  {code:'111110063',name:'Sua Enfamama A+ PWD CHOCO 830G FT VN New',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:660000,stock:[5,35,16,3,33,21,27,17]},
+  {code:'111110064',name:'Sua Enfamama A+ PWD VANI 830G FT VN New',g1:'Mẹ bầu và sau sinh',g2:'Sữa cho mẹ',price:660000,stock:[25,9,17,26,3,16,16,22]},
+  {code:'211110200',name:'Sua Meiji 0 Infant 800g',g1:'Sữa cho bé',g2:'Sữa bột',price:569000,stock:[6,16,0,31,15,27,16,0]},
+  {code:'211110203',name:'Sua Meiji 9 Growing 800g',g1:'Sữa cho bé',g2:'Sữa bột',price:529000,stock:[30,13,13,0,1,17,18,21]},
+  {code:'211110206',name:'Sua Aptamil Profutura so 3 900g',g1:'Sữa cho bé',g2:'Sữa bột',price:789000,stock:[17,3,0,28,0,18,3,0]},
+  {code:'211110209',name:'Sua Aptamil Advance so 1 800g',g1:'Sữa cho bé',g2:'Sữa bột',price:655000,stock:[1,0,19,4,26,19,26,0]},
+  {code:'214110110',name:'Men vi sinh 10 chung BioAmicus Complete 10ml',g1:'Thực phẩm chức năng',g2:'Men vi sinh',price:495000,stock:[2,5,0,15,21,2,0,0]},
+  {code:'214110111',name:'Bio Amicus Vitamin D3 10.3ml',g1:'Thực phẩm chức năng',g2:'Vitamin',price:285000,stock:[14,2,10,0,5,0,0,0]},
+];
+
+// MẪU: tạo tồn kế toán lệch nhẹ so với tồn hệ thống để demo.
+// Khi có API thật, xoá đoạn này và trả về stockKT trực tiếp.
+PRODUCTS.forEach(p => {
+  if (!p.stockKT) p.stockKT = p.stock.map((q,i) => Math.max(0, q + ((+p.code.slice(-1) + i) % 3) - 1));
+});
+
+const STOCK_TYPES = {
+  HT:{field:'stock',   title:'Tồn kho hệ thống'},
+  KT:{field:'stockKT', title:'Tồn kho kế toán'},
+};
+
+/* ================= BỘ LỌC ================= */
+const fmt = n => n.toLocaleString('vi-VN');
+const getType = () => document.getElementById('stockType').value;
+
+/* Thêm dòng "Chọn tất cả" lên đầu dropdown của Tom Select.
+   - Khi đang gõ tìm kiếm: chỉ chọn/bỏ các kết quả đang hiển thị.
+   - Trạng thái checkbox: đủ / một phần / chưa chọn.                    */
+function addSelectAll(ts){
+  const bar = document.createElement('div');
+  bar.className = 'ts-selall';
+  bar.innerHTML = '<input type="checkbox" tabindex="-1"><span></span>';
+  const box = bar.querySelector('input'), txt = bar.querySelector('span');
+  ts.dropdown.prepend(bar);
+
+  const visibleIds = () => ts.lastQuery
+    ? ts.currentResults.items.map(i => String(i.id))
+    : Object.keys(ts.options);
+
+  const sync = () => {
+    const ids = visibleIds(), sel = new Set(ts.items);
+    const n = ids.filter(id => sel.has(id)).length;
+    box.checked = ids.length > 0 && n === ids.length;
+    box.indeterminate = n > 0 && n < ids.length;
+    bar.style.display = ids.length ? '' : 'none';
+    txt.textContent = (ts.lastQuery ? 'Chọn tất cả kết quả' : 'Chọn tất cả') + ` (${ids.length})`;
+  };
+
+  bar.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const ids = visibleIds(), sel = new Set(ts.items);
+    if (ids.length && ids.every(id => sel.has(id))) {
+      ids.forEach(id => ts.removeItem(id));
+    } else {
+      ts.addItems(ids.filter(id => !sel.has(id)));
+    }
+    ts.refreshOptions(false);
+    sync();
+  });
+
+  ts.on('change', sync);
+  ts.on('type', () => setTimeout(sync));
+  ts.on('dropdown_open', sync);
+  sync();
+}
+
+const tsCommon = {
+  plugins:['remove_button','checkbox_options','clear_button'],
+  valueField:'code', labelField:'name', searchField:['code','name'],
+  closeAfterSelect:false,
+};
+
+const storeSel = new TomSelect('#stores', {
+  ...tsCommon,
+  options: STORES.map(s => ({code:s, name:STORE_NAMES[s] || s})),
+  render:{
+    option:(d,esc)=>`<div><span class="opt-code">${esc(d.code)}</span>${esc(d.name)}</div>`,
+    item:(d,esc)=>`<div title="${esc(d.name)}">${esc(d.code)}</div>`,
+    no_results:()=>'<div class="no-results">Không tìm thấy cửa hàng</div>',
+  },
+});
+
+const itemSel = new TomSelect('#items', {
+  ...tsCommon,
+  options: PRODUCTS.map(p => ({code:p.code, name:p.name})),
+  maxOptions: 500,
+  render:{
+    option:(d,esc)=>`<div><span class="opt-code">${esc(d.code)}</span>${esc(d.name)}</div>`,
+    item:(d,esc)=>`<div title="${esc(d.name)}">${esc(d.code)}</div>`,
+    no_results:()=>'<div class="no-results">Không tìm thấy mã hàng</div>',
+  },
+});
+
+addSelectAll(storeSel);
+addSelectAll(itemSel);
+
+/* ================= BẢNG ================= */
+let rows = [], cols = [], page = 1;
+
+function search(){
+  const type = STOCK_TYPES[getType()];
+  const selStores = storeSel.getValue();
+  const selItems  = itemSel.getValue();
+  const onlyStock = document.getElementById('onlyInStock').checked;
+
+  document.getElementById('title').textContent = type.title;
+  document.title = type.title;
+
+  cols = selStores.length ? STORES.filter(s => selStores.includes(s)) : STORES.slice();
+  const idx = cols.map(c => STORES.indexOf(c));
+
+  rows = PRODUCTS
+    .filter(p => !selItems.length || selItems.includes(p.code))
+    .map(p => {
+      const src = p[type.field] || [];
+      const qty = idx.map(i => src[i] || 0);
+      const total = qty.reduce((a,b)=>a+b,0);
+      return {...p, qty, total, value: total * p.price};
+    })
+    .filter(r => !onlyStock || r.total > 0);
+
+  page = 1;
+  render();
+}
+
+function render(){
+  const size = +document.getElementById('pageSize').value;
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  page = Math.min(page, pages);
+
+  document.getElementById('thead').innerHTML = `<tr>
+    <th>Mã hàng</th><th>Tên hàng</th><th>Nhóm 1</th><th>Nhóm 2</th>
+    <th class="num">Giá bán lẻ</th><th class="num">Số lượng tồn</th><th class="num sep">Giá trị tồn</th>
+    ${cols.map(c=>`<th class="num" title="${STORE_NAMES[c]||c}">${c}</th>`).join('')}
+  </tr>`;
+
+  const slice = rows.slice((page-1)*size, page*size);
+  document.getElementById('tbody').innerHTML = slice.length
+    ? slice.map(r => `<tr>
+        <td class="code">${r.code}</td>
+        <td class="name">${r.name}</td>
+        <td>${r.g1}</td><td>${r.g2}</td>
+        <td class="num">${fmt(r.price)}</td>
+        <td class="num qty">${fmt(r.total)}</td>
+        <td class="num sep">${fmt(r.value)}</td>
+        ${r.qty.map(q=>`<td class="num qty ${q===0?'zero':''}">${fmt(q)}</td>`).join('')}
+      </tr>`).join('')
+    : `<tr><td class="empty" colspan="${7+cols.length}">Không có dữ liệu</td></tr>`;
+
+  // Dòng tổng: cộng trên TOÀN BỘ kết quả lọc (không chỉ trang hiện tại)
+  const sumQty = rows.reduce((a,r)=>a+r.total,0);
+  const sumVal = rows.reduce((a,r)=>a+r.value,0);
+  const sumByStore = cols.map((_,i) => rows.reduce((a,r)=>a+r.qty[i],0));
+  document.getElementById('tfoot').innerHTML = rows.length ? `<tr>
+      <td class="lbl" colspan="5">Tổng cộng (${fmt(rows.length)} mã hàng)</td>
+      <td class="num">${fmt(sumQty)}</td>
+      <td class="num sep">${fmt(sumVal)}</td>
+      ${sumByStore.map(s=>`<td class="num ${s===0?'zero':''}">${fmt(s)}</td>`).join('')}
+    </tr>` : '';
+
+  document.getElementById('summary').textContent =
+    `${STOCK_TYPES[getType()].title} · ${rows.length} mã hàng · ${cols.length} cửa hàng · Tổng tồn ${fmt(sumQty)} · Giá trị ${fmt(sumVal)}`;
+
+  document.getElementById('pageInfo').textContent = `Trang ${page} / ${pages}`;
+  document.getElementById('prev').disabled = page <= 1;
+  document.getElementById('next').disabled = page >= pages;
+}
+
+document.getElementById('btnSearch').onclick = search;
+document.getElementById('stockType').onchange = search;
+document.getElementById('prev').onclick = () => { page--; render(); };
+document.getElementById('next').onclick = () => { page++; render(); };
+document.getElementById('pageSize').onchange = () => { page = 1; render(); };
+
+search();
+</script>
+</body>
+</html>
